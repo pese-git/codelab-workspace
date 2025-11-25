@@ -1,4 +1,4 @@
-# 🟥 **POC Flutter IDE — Цель**
+# 🟥 **POC Codelab IDE — Цель**
 
 * Интеграция с AI Agent через WebSocket (Gateway)
 * Локальное выполнение minimal set of tools: файловые операции, git diff, apply_patch
@@ -65,7 +65,7 @@ POC предназначен для проверки **реальности ар
 
 ```mermaid
 flowchart LR
-IDE[Flutter IDE] 
+IDE[Codelab IDE] 
     -->|WebSocket| GW[Gateway Service]
 
 subgraph LocalIDE

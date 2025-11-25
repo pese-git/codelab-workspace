@@ -10,7 +10,7 @@ Gateway Service (Python)**
 
 **Gateway Service** — это сервис-прокси, обеспечивающий двунаправленную связь между:
 
-* **Flutter IDE Desktop** (macOS, Windows, Linux)
+* **Codelab IDE Desktop** (macOS, Windows, Linux)
 * **AI Agent Service** (облачный или локальный)
 
 Gateway выполняет:
@@ -46,7 +46,7 @@ Gateway — это тонкий транспортный слой.
 
 ```mermaid
 flowchart LR
-IDE[Flutter IDE] <--> GW_WS[Gateway WebSocket Layer]
+IDE[Codelab IDE] <--> GW_WS[Gateway WebSocket Layer]
 GW_WS --> ROUTER[Message Router]
 ROUTER --> AGENT_HTTP[AI Agent HTTP/WS Client]
 AGENT_HTTP --> ROUTER
@@ -321,7 +321,7 @@ FastAPI
 
 ### День 10
 
-* Интеграция с Flutter IDE
+* Интеграция с Codelab IDE
 
 ---
 

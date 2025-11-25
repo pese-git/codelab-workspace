@@ -5,7 +5,7 @@
 
 Создать минимальный рабочий вариант AI Agent Service, который:
 
-* работает с Flutter IDE через Gateway (WS)
+* работает с Codelab IDE через Gateway (WS)
 * выполняет reasoning через LLM
 * поддерживает базовые tool-calls
 * обрабатывает результаты инструментов IDE
@@ -129,7 +129,7 @@ POC должен доказать:
 ```mermaid
 flowchart LR
 
-IDE[Flutter IDE\n(Local Tools)] 
+IDE[Codelab IDE\n(Local Tools)] 
   -->|WebSocket| GW[Gateway Service]
 
 GW -->|user_message| AGENT[Agent Runtime]

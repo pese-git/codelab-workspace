@@ -393,7 +393,7 @@ ARS должен поддерживать LLM поставщика, позвол
 ### Неделя 3: Testing & integration
 
 * Gateway integration tests
-* Flutter IDE E2E tests
+* Codelab IDE E2E tests
 * Load tests
 * Documentation
 

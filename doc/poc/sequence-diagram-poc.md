@@ -1,9 +1,9 @@
-# 🟥 **Sequence Diagram — POC Flutter IDE → Gateway → AI Agent**
+# 🟥 **Sequence Diagram — POC Codelab IDE → Gateway → AI Agent**
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant IDE as Flutter IDE
+    participant IDE as Codelab IDE
     participant GW as Gateway
     participant Agent as AI Agent Service
     participant LLM as LLM Provider
