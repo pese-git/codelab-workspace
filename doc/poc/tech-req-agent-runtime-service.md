@@ -148,28 +148,37 @@ POST /agent/message
 
 ## 4.2 Streaming токенов ARS → Gateway
 
-Формат:
+**Протокол: Server-Sent Events (SSE) или chunked JSON over HTTP**
 
-```json
-{
-  "type": "assistant_message",
-  "session_id": "sess_1",
-  "message_id": "msg_123",
-  "token": "import",
-  "is_final": false
-}
+### Вариант 1: SSE (рекомендуется)
+
+```
+POST /agent/message/stream
+Content-Type: text/event-stream
+
+event: token
+data: {"type": "assistant_message", "session_id": "sess_1", "message_id": "msg_123", "token": "import", "is_final": false}
+
+event: token
+data: {"type": "assistant_message", "session_id": "sess_1", "message_id": "msg_123", "token": " os", "is_final": false}
+
+event: complete
+data: {"type": "assistant_message", "session_id": "sess_1", "message_id": "msg_123", "is_final": true}
 ```
 
-### Завершение:
+### Вариант 2: Chunked JSON (альтернатива)
 
-```json
-{
-  "type": "assistant_message",
-  "session_id": "sess_1",
-  "message_id": "msg_123",
-  "is_final": true
-}
 ```
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Content-Type: application/x-ndjson
+
+{"type": "assistant_message", "session_id": "sess_1", "message_id": "msg_123", "token": "import", "is_final": false}
+{"type": "assistant_message", "session_id": "sess_1", "message_id": "msg_123", "token": " os", "is_final": false}
+{"type": "assistant_message", "session_id": "sess_1", "message_id": "msg_123", "is_final": true}
+```
+
+**Важно:** Gateway получает streaming от Agent через SSE/HTTP и пересылает токены в IDE через существующее WebSocket соединение.
 
 ---
 
@@ -201,45 +210,28 @@ Response:
 
 # 5. Поддерживаемые инструменты (tools)
 
-Все инструменты передаются в формате:
+Полная спецификация всех инструментов находится в документе: **[tools-specification.md](./tools-specification.md)**
 
-### Tool call
+### Формат взаимодействия:
 
-```json
-{
-  "type": "tool_call",
-  "call_id": "call_77",
-  "tool_name": "read_file",
-  "args": {
-    "path": "src/main.dart"
-  }
-}
-```
+Все инструменты используют единый формат tool_call/tool_result, описанный в [tools-specification.md](./tools-specification.md#3-детальная-спецификация-mvp-tools)
 
-### Tool result
+### MVP tools (6 инструментов):
 
-```json
-{
-  "type": "tool_result",
-  "call_id": "call_77",
-  "result": {
-    "content": "..."
-  }
-}
-```
+| Tool name          | Назначение                           | Статус |
+| ------------------ | ------------------------------------ | ------ |
+| read_file          | Чтение файлов                        | ✅ MVP |
+| write_file         | Запись/создание файлов               | ✅ MVP |
+| git.diff           | Получение diff                       | ✅ MVP |
+| apply_patch        | Применение патчей                    | ✅ MVP |
+| apply_patch_review | Интерактивный выбор изменений        | ✅ MVP |
+| prompt_user        | Запрос подтверждения пользователя    | ✅ MVP |
 
-### MVP tools:
+### Extended tools (будут добавлены после MVP):
 
-| Tool name          | Назначение                           |
-| ------------------ | ------------------------------------ |
-| read_file          | Чтение файлов на машине пользователя |
-| write_file         | Запись данных                        |
-| list_files         | Дерево файлов                        |
-| git.diff           | Получение diff                       |
-| apply_patch        | Применение патчей                    |
-| apply_patch_review | Интерактивный выбор chunk            |
-| run_command        | Выполнение shell                     |
-| prompt_user        | Запрос подтверждения                 |
+См. полный список в [tools-specification.md](./tools-specification.md#extended-tools-расширенные-для-полной-версии)
+
+**Важно:** Agent Runtime Service не выполняет инструменты локально — все tool-calls отправляются через Gateway → IDE.
 
 ---
 
@@ -360,6 +352,7 @@ ARS должен поддерживать LLM поставщика, позвол
 
 * Задержка ответа < 150мс до начала streaming
 * Скорость стриминга > 200 токенов/сек
+* Лимиты на размер файлов (см. [system-specifications.md](./system-specifications.md#2-file-size-limits))
 
 ### Scalability
 
@@ -370,6 +363,12 @@ ARS должен поддерживать LLM поставщика, позвол
 
 * Gateway должен быть единственным входом
 * API ARS не публикуется в публичный интернет
+* Межсервисная аутентификация через X-Internal-Auth (см. [system-specifications.md](./system-specifications.md#33-межсервисная-аутентификация))
+
+### Monitoring
+
+* Health check endpoint обязателен (см. [system-specifications.md](./system-specifications.md#1-health-check-protocol))
+* Проверки: LLM Proxy доступность, Session storage, Active sessions count
 
 ---
 

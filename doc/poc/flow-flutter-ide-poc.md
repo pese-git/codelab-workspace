@@ -51,15 +51,20 @@ CommandPanel -->|command_result| AI
 
 ## 3. Минимальные инструменты (tools)
 
-| Tool                 | Описание                                         |
-| -------------------- | ------------------------------------------------ |
-| `read_file`          | Чтение файла по пути                             |
-| `write_file`         | Запись файла с содержимым                        |
-| `git.diff`           | Получение git diff                               |
-| `apply_patch`        | Применение diff локально                         |
-| `apply_patch_review` | Patch Review UI с выбором chunk                  |
-| `run_command`        | Локальный запуск shell команд                    |
-| `prompt_user`        | Запрос подтверждения пользователя (approve/deny) |
+Полная спецификация инструментов находится в документе: **[tools-specification.md](./tools-specification.md)**
+
+### MVP Tools (6 инструментов):
+
+| Tool                 | Описание                                         | Статус |
+| -------------------- | ------------------------------------------------ | ------ |
+| `read_file`          | Чтение файла по пути                             | ✅ MVP |
+| `write_file`         | Запись файла с содержимым                        | ✅ MVP |
+| `git.diff`           | Получение git diff                               | ✅ MVP |
+| `apply_patch`        | Применение diff локально                         | ✅ MVP |
+| `apply_patch_review` | Patch Review UI с выбором chunk                  | ✅ MVP |
+| `prompt_user`        | Запрос подтверждения пользователя (approve/deny) | ✅ MVP |
+
+**Примечание:** `run_command` и другие расширенные инструменты будут добавлены в версии 1.1. См. [tools-specification.md](./tools-specification.md#extended-tools-расширенные-для-полной-версии)
 
 ---
 

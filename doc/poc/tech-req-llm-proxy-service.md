@@ -64,6 +64,8 @@ POST /llm/stream
 {"tool_call": {...}}
 ```
 
+**Примечание:** Информация о доступных tools передается в LLM согласно спецификации в [tools-specification.md](./tools-specification.md). LLM Proxy не выполняет tools, а только проксирует запросы и ответы между Agent Service и LLM провайдерами.
+
 ### ✔️ 2.3 Proxy к любым провайдерам
 
 POC должен поддерживать минимум:
@@ -179,14 +181,24 @@ class ProviderAdapter:
 
 ### 4.5 Streaming Normalizer
 
-Конвертация chunk-и провайдеров в единый формат:
+Конвертация chunk-и провайдеров в единый формат для передачи Agent Service.
 
-```json
-{
-  "type": "token",
-  "token": "...",
-  "index": 124
-}
+**Протокол: SSE (Server-Sent Events) — рекомендуется для LLM Proxy → Agent**
+
+Формат SSE stream:
+
+```
+event: token
+data: {"type": "token", "token": "import", "index": 1}
+
+event: token
+data: {"type": "token", "token": " os", "index": 2}
+
+event: tool_call
+data: {"type": "tool_call", "name": "read_file", "arguments": {"path": "main.py"}}
+
+event: complete
+data: {"type": "complete", "finish_reason": "stop", "usage": {"total_tokens": 150}}
 ```
 
 Поддержка:
@@ -195,6 +207,12 @@ class ProviderAdapter:
 * tool_calls
 * assistant messages
 * reasoning artifacts (если доступны)
+
+**Обоснование выбора SSE:**
+- Простая реализация на FastAPI
+- Встроенная поддержка в HTTP клиентах
+- Автоматическое переподключение
+- Легко проксировать через nginx/cloudflare
 
 ### 4.6 Rate Limiter
 
@@ -309,15 +327,22 @@ providers:
 * старт стриминга < 200мс
 * задержка токенов < 120мс
 * throughput: ~10 RPS (достаточно для POC)
+* Rate limiting для LLM запросов (см. [system-specifications.md](./system-specifications.md#4-rate-limiting-mvp))
 
 ### Security
 
 * API ключи не логируются
 * HTTPS поддержка (через nginx/traefik)
+* Аутентификация через Bearer token (см. [system-specifications.md](./system-specifications.md#3-authentication-protocol))
 
 ### Scalability
 
 * Stateless структура (можно масштабировать)
+
+### Monitoring
+
+* Health check endpoint обязателен (см. [system-specifications.md](./system-specifications.md#1-health-check-protocol))
+* Проверки: хотя бы один LLM provider доступен, rate limits не превышены, response time < 5s
 
 ---
 

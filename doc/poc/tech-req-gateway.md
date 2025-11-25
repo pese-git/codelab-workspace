@@ -163,6 +163,8 @@ ws://gateway_host/ws/{session_id}
 
 ## 5.5 Tool Call от Agent → Gateway → IDE
 
+Формат tool_call соответствует спецификации в [tools-specification.md](./tools-specification.md#3-детальная-спецификация-mvp-tools)
+
 ```json
 {
   "type": "tool_call",
@@ -176,6 +178,8 @@ ws://gateway_host/ws/{session_id}
 
 ## 5.6 Tool Result от IDE → Gateway → Agent
 
+Формат tool_result соответствует спецификации в [tools-specification.md](./tools-specification.md#3-детальная-спецификация-mvp-tools)
+
 ```json
 {
   "type": "tool_result",
@@ -183,6 +187,8 @@ ws://gateway_host/ws/{session_id}
   "result": { "content": "file data..." }
 }
 ```
+
+**Примечание:** Gateway не интерпретирует содержимое tool_call/tool_result, а только маршрутизирует их между IDE и Agent Service.
 
 ---
 
@@ -203,11 +209,15 @@ ws://gateway_host/ws/{session_id}
 
 ## 6.2 Streaming tokens
 
-1. Agent начинает стримить токены
-2. Gateway пересылает их IDE
+**Протокол: WebSocket (реиспользуем существующее соединение с IDE)**
+
+1. Agent начинает стримить токены через HTTP/SSE
+2. Gateway получает токены от Agent и пересылает их IDE через WebSocket
 3. Если IDE отсоединилась — Gateway буферизует *последние 10 токенов*
 4. После reconnect — отсылает buffered tokens
 5. После is_final=true — сообщение считается завершённым
+
+**Важно:** Gateway использует WebSocket для связи с IDE (двунаправленный канал уже установлен) и получает streaming от Agent через SSE/chunked HTTP.
 
 ---
 
@@ -261,6 +271,9 @@ ws://gateway_host/ws/{session_id}
 * Задержка forwarding < **5мс**
 * Пропускная способность streaming > **200 токенов/сек**
 * Время восстановления после reconnect < **200мс**
+* Health check endpoint (см. [system-specifications.md](./system-specifications.md#1-health-check-protocol))
+* Аутентификация по API key (см. [system-specifications.md](./system-specifications.md#3-authentication-protocol))
+* Rate limiting (см. [system-specifications.md](./system-specifications.md#4-rate-limiting-mvp))
 
 ---
 

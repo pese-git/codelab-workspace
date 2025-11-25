@@ -34,19 +34,23 @@ POC предназначен для проверки **реальности ар
 
 ### 🔹 Local Tools Executor
 
-Поддержка инструментов:
+Полная спецификация инструментов находится в документе: **[tools-specification.md](./tools-specification.md)**
+
+Поддержка MVP инструментов:
 
 1. **File Tools**
+   * `read_file(path)` - чтение файлов
+   * `write_file(path, content)` - запись файлов
 
-   * `read_file(path)`
-   * `write_file(path, content)`
 2. **Git Tools**
+   * `git.diff(path)` - получение diff
+   * `apply_patch(diff)` - применение патчей
 
-   * `git.diff(path)`
-   * `apply_patch(diff)`
-3. **Commands**
+3. **User Interaction**
+   * `apply_patch_review(diff)` - интерактивный выбор изменений
+   * `prompt_user(message, actions)` - запрос подтверждения
 
-   * `run_command(cmd, args)`
+**Примечание:** `run_command` и другие расширенные инструменты будут добавлены после MVP. См. [tools-specification.md](./tools-specification.md#extended-tools-расширенные-для-полной-версии)
 
 ### 🔹 Patch Review UI
 
