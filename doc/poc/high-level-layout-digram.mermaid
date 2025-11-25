@@ -1,0 +1,46 @@
+flowchart TD
+    %% ===========================
+    %% User Layer
+    %% ===========================
+    User[User] --> ChatUI[Chat Interface]
+
+    %% ===========================
+    %% UI Layer
+    %% ===========================
+    ChatUI --> ChatController[Chat Controller]
+    PatchUI[Patch Review UI] --> PatchController[Patch Controller]
+
+    %% ===========================
+    %% Core IDE Layer
+    %% ===========================
+    ChatController --> WebSocketClient[WebSocket Client]
+    PatchController --> LocalToolsExecutor[Local Tools Executor]
+    CommandPanel[Command Runner Panel] --> LocalToolsExecutor
+    GitPanel[Git Status Panel] --> LocalToolsExecutor
+
+    %% ===========================
+    %% Local Tools
+    %% ===========================
+    LocalToolsExecutor --> FileOps[File Operations]
+    LocalToolsExecutor --> GitOps[Git Executor]
+    LocalToolsExecutor --> CommandRunner[Run Commands]
+
+    %% ===========================
+    %% WebSocket / Gateway
+    %% ===========================
+    WebSocketClient --> GW[Gateway Service]
+    GW --> AI[AI Agent Service]
+    AI --> GW
+    GW --> WebSocketClient
+
+    %% ===========================
+    %% Patch Review Flow
+    %% ===========================
+    AI -->|apply_patch_review tool_call| PatchController
+    PatchController -->|filtered_diff| AI
+
+    %% ===========================
+    %% Command Flow
+    %% ===========================
+    AI -->|run_command tool_call| CommandPanel
+    CommandPanel -->|command_result| AI

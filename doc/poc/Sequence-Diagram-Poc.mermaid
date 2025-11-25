@@ -1,0 +1,69 @@
+sequenceDiagram
+    participant User
+    participant IDE as Flutter IDE
+    participant GW as Gateway
+    participant Agent as AI Agent Service
+    participant LLM as LLM Provider
+
+    %% ------------------------------
+    %% Step 1: User message
+    %% ------------------------------
+    User->>IDE: Type message "Add logging to auth.js"
+    IDE->>GW: WS user_message {content: "Add logging to auth.js"}
+
+    %% ------------------------------
+    %% Step 2: Gateway → Agent
+    %% ------------------------------
+    GW->>Agent: Forward user_message
+    Agent->>Agent: Update session context
+
+    %% ------------------------------
+    %% Step 3: Agent → LLM
+    %% ------------------------------
+    Agent->>LLM: Request reasoning + tool-calls
+    LLM-->>Agent: Stream token output (partial reasoning)
+
+    %% ------------------------------
+    %% Step 4: LLM proposes tool-call
+    %% ------------------------------
+    Agent->>GW: tool_call {tool_name: "git.diff", args:{path:"."}}
+    GW->>IDE: Forward tool_call
+
+    %% ------------------------------
+    %% Step 5: IDE executes tool
+    %% ------------------------------
+    IDE->>IDE: Execute git.diff locally
+    IDE-->>GW: tool_result {diff:"diff --git ..."}
+    GW-->>Agent: Forward tool_result
+
+    %% ------------------------------
+    %% Step 6: Agent continues reasoning
+    %% ------------------------------
+    Agent->>LLM: Continue reasoning with tool_result
+    LLM-->>Agent: Stream token output (patch proposal)
+
+    %% ------------------------------
+    %% Step 7: Patch Review
+    %% ------------------------------
+    Agent->>GW: tool_call {tool_name:"apply_patch_review", args:{diff:"diff ..."}}
+    GW->>IDE: Forward apply_patch_review
+    IDE->>IDE: Show Patch Review UI
+    User->>IDE: Select chunks to apply
+    IDE-->>GW: tool_result {filtered_diff:"diff ..."}
+    GW-->>Agent: Forward filtered_diff
+
+    %% ------------------------------
+    %% Step 8: Apply Patch
+    %% ------------------------------
+    Agent->>GW: tool_call {tool_name:"apply_patch", args:{diff:"filtered_diff"}}
+    GW->>IDE: Forward apply_patch
+    IDE->>IDE: Apply patch locally
+    IDE-->>GW: tool_result {success:true}
+    GW-->>Agent: Forward result
+
+    %% ------------------------------
+    %% Step 9: Final message streaming
+    %% ------------------------------
+    Agent->>GW: assistant_message {streaming tokens: "Logging added in auth.js..."}
+    GW-->>IDE: Stream to Chat UI
+    IDE->>User: Display streaming message
