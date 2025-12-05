@@ -1,0 +1,6 @@
+[submodule "codelab-ai-service"]
+	path = codelab-ai-service
+	url = git@github.com:pese-git/codelab-ai-service.git
+[submodule "codelab_ide"]
+	path = codelab_ide
+	url = git@github.com:pese-git/codelab_ide.git
