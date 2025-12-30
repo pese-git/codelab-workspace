@@ -1,38 +1,356 @@
 # CodeLab Workspace
 
-CodeLab Workspace is an integrated development environment designed for efficient coding and AI assistance. This repository serves as the main workspace containing all necessary components of the CodeLab project.
+**CodeLab Workspace** — это интегрированная среда разработки (IDE) с поддержкой AI-ассистента, построенная на современном технологическом стеке. Проект объединяет кроссплатформенный Flutter-интерфейс и микросервисную архитектуру AI-сервиса для эффективной разработки кода.
 
-## Project Structure
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Flutter](https://img.shields.io/badge/Flutter-3.38.5-02569B?logo=flutter)
+![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python)
 
-The workspace includes the following main components:
+## 🎯 Основные возможности
 
-- **codelab-ai-service** - AI service backend implementation
-- **codelab_ide** - Flutter-based IDE frontend
+### IDE (Flutter)
+- ✅ **Кроссплатформенность** - Windows, Linux, macOS
+- ✅ **Редактор кода** - Подсветка синтаксиса для множества языков (Dart, Python, JavaScript, TypeScript, Java, C/C++, HTML/CSS и др.)
+- ✅ **Навигация по проекту** - Дерево файлов с быстрым поиском
+- ✅ **Встроенный терминал** - Выполнение команд и скриптов
+- ✅ **AI Ассистент** - Интеллектуальная помощь в написании кода
+- ✅ **Модульная архитектура** - Чистое разделение ответственности
 
-## Getting Started
+### AI Service (Python)
+- ✅ **Микросервисная архитектура** - Gateway, Agent Runtime, LLM Proxy
+- ✅ **Поддержка множества LLM** - OpenAI, Anthropic, Ollama (локальные модели)
+- ✅ **WebSocket API** - Потоковая передача данных в реальном времени
+- ✅ **Управление контекстом** - Сохранение истории диалогов
+- ✅ **Инструменты для работы с кодом** - Анализ, рефакторинг, генерация
 
-### Prerequisites
+## 📁 Структура проекта
 
-- Git
-- Flutter SDK
-- Python 3.8+
-- Docker and Docker Compose
+```
+codelab-workspace/
+├── codelab_ide/              # Flutter IDE приложение
+│   ├── apps/
+│   │   └── codelab_ide/      # Основное приложение
+│   ├── packages/
+│   │   ├── codelab_core/     # Основные сервисы (файлы, проекты)
+│   │   ├── codelab_engine/   # Бизнес-логика и UI виджеты
+│   │   ├── codelab_ai_assistant/  # Интеграция AI ассистента
+│   │   ├── codelab_uikit/    # UI компоненты и темы
+│   │   └── codelab_version_control/  # Git интеграция
+│   └── README.md             # Подробная документация IDE
+│
+├── codelab-ai-service/       # AI сервис (микросервисы)
+│   ├── gateway/              # WebSocket прокси
+│   ├── agent-runtime/        # AI логика и оркестрация
+│   ├── llm-proxy/            # Унифицированный доступ к LLM
+│   └── README.md             # Подробная документация AI сервиса
+│
+└── doc/                      # Общая документация проекта
+```
 
-### Installation
+## 🚀 Быстрый старт
 
-1. Clone the repository with submodules:
+### Системные требования
+
+#### Для IDE (Flutter)
+- **Dart SDK**: 3.10.1+
+- **Flutter SDK**: 3.38.5 (рекомендуется через FVM)
+- **Git**: для клонирования репозитория
+- **Минимум 4 GB RAM** (рекомендуется 8 GB)
+
+#### Для AI Service (Python)
+- **Python**: 3.12+
+- **Docker & Docker Compose**: для запуска микросервисов
+- **uv**: быстрый менеджер пакетов Python
+
+### Установка
+
+#### 1. Клонирование репозитория
+
 ```bash
-git clone --recursive git@github.com:pese-git/codelab-workspace.git
-# or if you've already cloned the repository:
+# Клонировать с подмодулями
+git clone --recursive https://github.com/openidealab/codelab-workspace.git
+cd codelab-workspace
+
+# Если уже клонировали без --recursive
 git submodule update --init --recursive
 ```
 
-2. Follow the setup instructions in each submodule's README for specific component setup.
+#### 2. Настройка IDE (Flutter)
 
-## Development
+```bash
+cd codelab_ide
 
-Each component (codelab-ai-service and codelab_ide) can be developed independently in their respective directories. Please refer to their individual documentation for development guidelines.
+# Установить FVM (если не установлен)
+dart pub global activate fvm
 
-## License
+# Установить Flutter через FVM
+fvm install
+fvm use 3.38.5
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+# Установить Melos для управления монорепозиторием
+dart pub global activate melos
+
+# Установить зависимости
+melos bootstrap
+
+# Запустить IDE
+melos run:codelab_ide
+```
+
+**Подробная документация:** [`codelab_ide/README.md`](codelab_ide/README.md)
+
+#### 3. Настройка AI Service (Python)
+
+```bash
+cd codelab-ai-service
+
+# Установить uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Создать .env файл
+cp .env.example .env
+# Отредактируйте .env и добавьте API ключи для OpenAI/Anthropic
+
+# Запустить все сервисы через Docker
+docker compose up -d
+
+# Проверить статус
+curl http://localhost:8000/health  # gateway
+curl http://localhost:8001/health  # agent-runtime
+curl http://localhost:8002/health  # llm-proxy
+```
+
+**Подробная документация:** [`codelab-ai-service/README.md`](codelab-ai-service/README.md)
+
+## 🔌 Интеграция компонентов
+
+### Архитектура взаимодействия
+
+```
+┌─────────────────┐
+│   CodeLab IDE   │  (Flutter Desktop App)
+│   (Frontend)    │
+└────────┬────────┘
+         │ WebSocket
+         ↓
+┌─────────────────┐
+│    Gateway      │  (WebSocket Proxy)
+│   Port: 8000    │
+└────────┬────────┘
+         │ HTTP/SSE
+         ↓
+┌─────────────────┐
+│ Agent Runtime   │  (AI Logic & Orchestration)
+│   Port: 8001    │
+└────────┬────────┘
+         │ HTTP/SSE
+         ↓
+┌─────────────────┐
+│   LLM Proxy     │  (Unified LLM Access)
+│   Port: 8002    │
+└────────┬────────┘
+         │
+    ┌────┴────┬──────────┐
+    ↓         ↓          ↓
+┌────────┐ ┌──────┐ ┌────────┐
+│ OpenAI │ │Claude│ │ Ollama │
+└────────┘ └──────┘ └────────┘
+```
+
+### WebSocket протокол
+
+**Подключение к AI ассистенту:**
+```javascript
+const ws = new WebSocket('ws://localhost:8000/ws/{session_id}');
+
+// Отправка сообщения
+ws.send(JSON.stringify({
+    type: "user_message",
+    content: "Напиши функцию для сортировки массива"
+}));
+
+// Получение ответа
+ws.onmessage = (event) => {
+    const response = JSON.parse(event.data);
+    console.log(response);
+};
+```
+
+## 🛠 Разработка
+
+### Команды для IDE (Flutter)
+
+```bash
+cd codelab_ide
+
+# Запустить IDE
+melos run:codelab_ide
+
+# Запустить тесты
+melos test
+
+# Генерация кода (freezed, json_serializable)
+melos generate
+
+# Форматирование кода
+melos format
+
+# Анализ кода
+melos analyze
+
+# Очистить build артефакты
+melos clean
+```
+
+### Команды для AI Service (Python)
+
+```bash
+cd codelab-ai-service
+
+# Просмотр логов
+docker compose logs -f
+
+# Перезапуск сервиса
+docker compose restart gateway
+
+# Остановка всех сервисов
+docker compose down
+
+# Пересборка после изменений
+docker compose up -d --build
+
+# Загрузка локальной модели Ollama
+./pull_model_docker.sh qwen3:0.6b
+```
+
+### Локальная разработка микросервисов
+
+```bash
+cd codelab-ai-service/gateway  # или agent-runtime, llm-proxy
+
+# Создать виртуальное окружение
+python -m venv .venv
+source .venv/bin/activate
+
+# Установить зависимости
+uv pip install -e '.[dev]'
+
+# Запустить тесты
+pytest tests/
+
+# Проверить код
+ruff check app/
+ruff check app/ --fix
+
+# Запустить сервис локально
+python app/main.py
+```
+
+## 📚 Документация
+
+### Основная документация
+- **[IDE Documentation](codelab_ide/README.md)** - Полное руководство по Flutter IDE
+- **[AI Service Documentation](codelab-ai-service/README.md)** - Документация по микросервисам
+
+### Техническая документация
+- **[WebSocket Protocol](codelab-ai-service/doc/websocket-protocol.md)** - Спецификация протокола
+- **[Agent Extended Protocol](codelab-ai-service/doc/agent_extended_protocol.md)** - Расширенный протокол агента
+- **[Gateway Requirements](codelab-ai-service/doc/tech-req-gateway.md)** - Требования к Gateway
+- **[Agent Runtime Requirements](codelab-ai-service/doc/tech-req-agent-runtime-service.md)** - Требования к Agent Runtime
+- **[LLM Proxy Requirements](codelab-ai-service/doc/tech-req-llm-proxy-service.md)** - Требования к LLM Proxy
+
+### Планы разработки
+- **[AI Agent Development Plan](codelab-ai-service/doc/ai-agent-iterative-development-plan.md)** - План итеративной разработки
+- **[HITL Backend Plan](codelab-ai-service/doc/hitl_backend_plan.md)** - План Human-in-the-Loop
+
+## 🧪 Тестирование
+
+### Тестирование IDE
+
+```bash
+cd codelab_ide
+
+# Запустить все тесты
+melos test
+
+# Тесты конкретного пакета
+melos test --scope=codelab_core
+melos test --scope=codelab_ai_assistant
+```
+
+### Тестирование AI Service
+
+```bash
+cd codelab-ai-service
+
+# Тесты всех сервисов
+cd gateway && uv run pytest tests
+cd ../agent-runtime && uv run pytest tests
+cd ../llm-proxy && uv run pytest tests
+
+# Интеграционные тесты (требуется запущенный docker compose)
+docker compose up -d
+pytest tests/integration/
+```
+
+## 🤝 Участие в разработке
+
+Мы приветствуем вклад в развитие проекта! Вот как вы можете помочь:
+
+1. **Fork** репозитория
+2. Создайте **ветку** для ваших изменений (`git checkout -b feature/amazing-feature`)
+3. **Commit** изменения (`git commit -m 'Add amazing feature'`)
+4. **Push** в ветку (`git push origin feature/amazing-feature`)
+5. Откройте **Pull Request**
+
+### Стандарты кода
+
+- **Flutter/Dart**: Следуйте [Effective Dart](https://dart.dev/guides/language/effective-dart)
+- **Python**: Используйте Ruff для форматирования и линтинга
+- **Commits**: Используйте [Conventional Commits](https://www.conventionalcommits.org/)
+
+## 📝 Лицензия
+
+Этот проект распространяется под лицензией MIT. Подробности в файле [LICENSE](LICENSE).
+
+```
+MIT License
+
+Copyright (c) 2025 CodeLab IDE
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## 🔗 Полезные ссылки
+
+- **Flutter**: https://flutter.dev
+- **Dart**: https://dart.dev
+- **Melos**: https://melos.invertase.dev
+- **FastAPI**: https://fastapi.tiangolo.com
+- **Ollama**: https://ollama.com
+- **OpenAI API**: https://platform.openai.com/docs
+- **Anthropic API**: https://docs.anthropic.com
+
+## 📧 Контакты
+
+Если у вас есть вопросы или предложения, создайте [Issue](https://github.com/openidealab/codelab-workspace/issues) в репозитории.
+
+---
+
+**Сделано с ❤️ командой OpenIdeaLab**
