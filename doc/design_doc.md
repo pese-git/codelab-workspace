@@ -23,6 +23,13 @@ CodeLab решает проблему низкой производительн�
 - Специализированные AI-агенты для разных типов задач
 - Human-in-the-Loop (HITL) для контроля опасных операций
 - Поддержка множества LLM провайдеров (коммерческих и локальных)
+- Мультиплатформенность: standalone IDE + плагины для популярных IDE
+
+**Продуктовая линейка**:
+
+1. **CodeLab IDE** (standalone) - полнофункциональная кроссплатформенная IDE на Flutter
+2. **CodeLab AI Assistant для VSCode** - плагин/расширение для Visual Studio Code
+3. **CodeLab AI Assistant для IntelliJ IDEA** - плагин для IntelliJ Platform (IDEA, PyCharm, WebStorm, etc.)
 
 ### 1.2 Целевая аудитория и пользователи
 
@@ -1702,7 +1709,23 @@ class RateLimiter:
 - [ ] Code embeddings (CodeBERT)
 - [ ] Инкрементальное обновление индекса
 
-**Phase 3: Advanced Features (Планируется)** 📋
+**Phase 3: IDE Plugins (Планируется)** 📋
+
+- [ ] **VSCode Extension**
+  - [ ] CodeLab AI Assistant для Visual Studio Code
+  - [ ] Интеграция с VSCode API
+  - [ ] Sidebar panel для AI чата
+  - [ ] Inline code suggestions
+  - [ ] Публикация в VSCode Marketplace
+  
+- [ ] **IntelliJ IDEA Plugin**
+  - [ ] CodeLab AI Assistant для IntelliJ Platform
+  - [ ] Поддержка IDEA, PyCharm, WebStorm, GoLand
+  - [ ] Tool Window для AI ассистента
+  - [ ] Code actions и intentions
+  - [ ] Публикация в JetBrains Marketplace
+
+**Phase 4: Advanced Features (Планируется)** 📋
 
 - [ ] Git интеграция (commit, push, pull, merge)
 - [ ] Collaborative editing (real-time)
@@ -1711,7 +1734,7 @@ class RateLimiter:
 - [ ] Performance profiling агент
 - [ ] Security scanning агент
 
-**Phase 4: Enterprise Features (Будущее)** 🔮
+**Phase 5: Enterprise Features (Будущее)** 🔮
 
 - [ ] Team workspaces
 - [ ] Role-based access control (RBAC)
@@ -1724,24 +1747,33 @@ class RateLimiter:
 
 ```
 Q1 2026:
-├── ✅ MVP Release
+├── ✅ MVP Release (CodeLab IDE standalone)
 ├── 🚧 Векторный поиск (Qdrant)
 └── 📋 Git интеграция (базовая)
 
 Q2 2026:
+├── 📋 VSCode Extension (alpha)
+├── 📋 IntelliJ IDEA Plugin (alpha)
 ├── Code review агент
-├── Test generation
-└── Performance оптимизации
+└── Test generation
 
 Q3 2026:
-├── Collaborative editing
-├── Team workspaces
-└── RBAC
+├── ✅ VSCode Extension (production)
+├── ✅ IntelliJ IDEA Plugin (production)
+├── Performance оптимизации
+└── Advanced RAG features
 
 Q4 2026:
+├── Collaborative editing
+├── Team workspaces
+├── RBAC
+└── Marketplace listings
+
+2027:
 ├── Enterprise features
 ├── On-premise deployment
-└── Custom fine-tuning
+├── Custom fine-tuning
+└── Advanced analytics
 ```
 
 ### 7.3 Поддержка и эксплуатация
@@ -2109,7 +2141,9 @@ PUT    /api/v1/hitl/requests/:id/reject
 
 **Репозитории**:
 - Backend: `codelab-ai-service/`
-- Frontend: `codelab_ide/`
+- Frontend IDE: `codelab_ide/`
+- VSCode Extension: `codelab-vscode-extension/` (планируется)
+- IntelliJ Plugin: `codelab-intellij-plugin/` (планируется)
 - Documentation: `doc/`
 
 **Команда**:
