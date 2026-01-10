@@ -7,3 +7,6 @@
 [submodule "website"]
 	path = website
 	url = git@github.com:pese-git/codelab-website.git
+[submodule "codelab-chart"]
+	path = codelab-chart
+	url = git@github.com:pese-git/codelab-chart.git
