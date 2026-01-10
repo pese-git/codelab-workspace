@@ -68,7 +68,7 @@ codelab-workspace/
 
 ```bash
 # Клонировать с подмодулями
-git clone --recursive https://github.com/openidealab/codelab-workspace.git
+git clone --recursive https://github.com/pese-git/codelab-workspace.git
 cd codelab-workspace
 
 # Если уже клонировали без --recursive
@@ -349,8 +349,8 @@ SOFTWARE.
 
 ## 📧 Контакты
 
-Если у вас есть вопросы или предложения, создайте [Issue](https://github.com/openidealab/codelab-workspace/issues) в репозитории.
+Если у вас есть вопросы или предложения, создайте [Issue](https://github.com/pese-git/codelab-workspace/issues) в репозитории.
 
 ---
 
-**Сделано с ❤️ командой OpenIdeaLab**
+**Сделано с ❤️ командой CodeLab**

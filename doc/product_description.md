@@ -291,7 +291,7 @@ CodeLab — это IDE нового поколения с мультиагент
 **Лицензия:** MIT License
 
 **Контакты:**
-- GitHub: [OpenIdeaLab/codelab-workspace](https://github.com/OpenIdeaLab/codelab-workspace)
+- GitHub: [pese-git/codelab-workspace](https://github.com/pese-git/codelab-workspace)
 - Email: contact@codelab.dev (планируется)
 - Discord: discord.gg/codelab (планируется)
 
