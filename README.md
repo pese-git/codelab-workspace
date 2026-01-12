@@ -1,10 +1,14 @@
 # CodeLab Workspace
 
-**CodeLab Workspace** — это интегрированная среда разработки (IDE) с поддержкой AI-ассистента, построенная на современном технологическом стеке. Проект объединяет кроссплатформенный Flutter-интерфейс и микросервисную архитектуру AI-сервиса для эффективной разработки кода.
+**CodeLab Workspace** — это AI-powered IDE с мультиагентной системой, построенная на современном технологическом стеке. Проект объединяет кроссплатформенный Flutter-интерфейс и микросервисную архитектуру AI-сервиса для эффективной разработки кода.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Flutter](https://img.shields.io/badge/Flutter-3.38.5-02569B?logo=flutter)
 ![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python)
+![Status](https://img.shields.io/badge/status-MVP-green)
+
+**Версия**: 1.0 (MVP)
+**Дата обновления**: 11 января 2026
 
 ## 🎯 Основные возможности
 
@@ -17,11 +21,14 @@
 - ✅ **Модульная архитектура** - Чистое разделение ответственности
 
 ### AI Service (Python)
-- ✅ **Микросервисная архитектура** - Gateway, Agent Runtime, LLM Proxy
+- ✅ **Микросервисная архитектура** - 4 сервиса (Gateway, Agent Runtime, LLM Proxy, Auth Service)
+- ✅ **Мультиагентная система** - 5 специализированных агентов (🎭 Orchestrator, 💻 Coder, 🏗️ Architect, 🐛 Debug, 💬 Ask)
+- ✅ **OAuth2 аутентификация** - JWT токены (RS256) с refresh token rotation
 - ✅ **Поддержка множества LLM** - OpenAI, Anthropic, Ollama (локальные модели)
 - ✅ **WebSocket API** - Потоковая передача данных в реальном времени
-- ✅ **Управление контекстом** - Сохранение истории диалогов
-- ✅ **Инструменты для работы с кодом** - Анализ, рефакторинг, генерация
+- ✅ **HITL (Human-in-the-Loop)** - Контроль опасных операций с database persistence
+- ✅ **Session persistence** - Async database (PostgreSQL/SQLite)
+- ✅ **9 реализованных tools** - Файловые операции, команды, поиск в коде
 
 ## 📁 Структура проекта
 
@@ -39,12 +46,19 @@ codelab-workspace/
 │   └── README.md             # Подробная документация IDE
 │
 ├── codelab-ai-service/       # AI сервис (микросервисы)
-│   ├── gateway/              # WebSocket прокси
-│   ├── agent-runtime/        # AI логика и оркестрация
-│   ├── llm-proxy/            # Унифицированный доступ к LLM
+│   ├── gateway/              # WebSocket прокси (порт 8000)
+│   ├── agent-runtime/        # AI логика и мультиагентная система (порт 8001)
+│   ├── llm-proxy/            # Унифицированный доступ к LLM (порт 8002)
+│   ├── auth-service/         # OAuth2 Authorization Server (порт 8003)
 │   └── README.md             # Подробная документация AI сервиса
 │
-└── doc/                      # Общая документация проекта
+├── website/                  # Документация (Docusaurus)
+│   └── docs/                 # Полная документация проекта
+│
+├── doc/                      # Техническая документация и планы
+│
+├── DOCUMENTATION_AUDIT_REPORT.md  # Аудит документации
+└── PROJECT_ROADMAP_2026.md        # Roadmap развития на 2026 год
 ```
 
 ## 🚀 Быстрый старт
@@ -118,9 +132,12 @@ docker compose up -d
 curl http://localhost:8000/health  # gateway
 curl http://localhost:8001/health  # agent-runtime
 curl http://localhost:8002/health  # llm-proxy
+curl http://localhost:8003/health  # auth-service
 ```
 
 **Подробная документация:** [`codelab-ai-service/README.md`](codelab-ai-service/README.md)
+
+**Полная документация**: [website/docs/](website/docs/) (Docusaurus)
 
 ## 🔌 Интеграция компонентов
 
@@ -248,20 +265,56 @@ python app/main.py
 
 ## 📚 Документация
 
-### Основная документация
+### 🌐 Полная документация (Docusaurus)
+Вся актуальная документация доступна в [`website/docs/`](website/docs/):
+
+**Начало работы:**
+- [Установка](website/docs/getting-started/installation.md)
+- [Быстрый старт](website/docs/getting-started/quick-start.md)
+- [Системные требования](website/docs/getting-started/system-requirements.md)
+
+**Архитектура:**
+- [Обзор архитектуры](website/docs/architecture/overview.md)
+- [Архитектура IDE](website/docs/architecture/ide-architecture.md)
+- [Архитектура AI Service](website/docs/architecture/ai-service-architecture.md)
+- [Интеграция компонентов](website/docs/architecture/integration.md)
+
+**API документация:**
+- [WebSocket Protocol](website/docs/api/websocket-protocol.md)
+- [Agent Protocol](website/docs/api/agent-protocol.md)
+- [Мультиагентная система](website/docs/api/multi-agent-system.md) ⭐ NEW
+- [Tools Specification](website/docs/api/tools-specification.md)
+- [Gateway API](website/docs/api/gateway.md)
+- [Agent Runtime API](website/docs/api/agent-runtime.md)
+- [LLM Proxy API](website/docs/api/llm-proxy.md)
+- [Auth Service API](website/docs/api/auth-service.md) ⭐ NEW
+
+**Руководства по интеграции:** ⭐ NEW
+- [Интеграция с Auth Service](website/docs/guides/auth-integration.md)
+- [Интеграция с мультиагентной системой](website/docs/guides/multi-agent-integration.md)
+
+**Разработка:**
+- [Разработка IDE](website/docs/development/ide.md)
+- [Разработка AI Service](website/docs/development/ai-service.md)
+- [Тестирование](website/docs/development/testing.md)
+- [Contributing](website/docs/development/contributing.md)
+
+### 📋 Аналитические отчеты
+- **[Documentation Audit Report](DOCUMENTATION_AUDIT_REPORT.md)** - Аудит документации проекта
+- **[Project Roadmap 2026](PROJECT_ROADMAP_2026.md)** - План развития на 2026 год
+
+### 📖 Компонентная документация
 - **[IDE Documentation](codelab_ide/README.md)** - Полное руководство по Flutter IDE
 - **[AI Service Documentation](codelab-ai-service/README.md)** - Документация по микросервисам
 
-### Техническая документация
-- **[WebSocket Protocol](codelab-ai-service/doc/websocket-protocol.md)** - Спецификация протокола
-- **[Agent Extended Protocol](codelab-ai-service/doc/agent_extended_protocol.md)** - Расширенный протокол агента
-- **[Gateway Requirements](codelab-ai-service/doc/tech-req-gateway.md)** - Требования к Gateway
-- **[Agent Runtime Requirements](codelab-ai-service/doc/tech-req-agent-runtime-service.md)** - Требования к Agent Runtime
-- **[LLM Proxy Requirements](codelab-ai-service/doc/tech-req-llm-proxy-service.md)** - Требования к LLM Proxy
+### 🗂️ Техническая документация
+- **[Multi-Agent README](codelab-ai-service/doc/MULTI_AGENT_README.md)** - Мультиагентная система
+- **[HITL Implementation](codelab-ai-service/doc/HITL_IMPLEMENTATION.md)** - Human-in-the-Loop
+- **[Session Persistence Guide](codelab-ai-service/agent-runtime/SESSION_PERSISTENCE_GUIDE.md)** - Персистентность сессий
+- **[Migration Complete](codelab-ai-service/agent-runtime/MIGRATION_COMPLETE.md)** - Async database миграция
 
-### Планы разработки
-- **[AI Agent Development Plan](codelab-ai-service/doc/ai-agent-iterative-development-plan.md)** - План итеративной разработки
-- **[HITL Backend Plan](codelab-ai-service/doc/hitl_backend_plan.md)** - План Human-in-the-Loop
+### ⚠️ Устаревшая документация
+- **[POC Documentation](doc/poc/README.md)** - Документация POC (помечена как устаревшая)
 
 ## 🧪 Тестирование
 
