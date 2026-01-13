@@ -1,0 +1,9 @@
+[tool.ty]
+# Type checking configuration for benchmark-standalone
+
+[tool.ty.rules]
+unused-ignore-comment = "warn"
+redundant-cast = "ignore"
+possibly-missing-attribute = "error"
+possibly-missing-import = "error"
+unresolved-import = "ignore"
