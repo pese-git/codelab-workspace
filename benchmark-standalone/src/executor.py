@@ -81,16 +81,27 @@ class MockToolExecutor:
             return {"success": False, "error": "Missing 'path' argument"}
         
         full_path = self.workspace_path / path
-        full_path.parent.mkdir(parents=True, exist_ok=True)
+        file_exists = full_path.exists()
+        action = "Updated" if file_exists else "Created"
         
+        full_path.parent.mkdir(parents=True, exist_ok=True)
         full_path.write_text(content, encoding='utf-8')
         
-        logger.info(f"Created file: {path} ({len(content)} bytes)")
+        # Show file content preview
+        lines = content.split('\n')
+        preview = '\n'.join(lines[:10])
+        if len(lines) > 10:
+            preview += f"\n... ({len(lines) - 10} more lines)"
+        
+        logger.info(f"📝 {action} file: {path} ({len(content)} bytes, {len(lines)} lines)")
+        logger.info(f"📄 Content preview:\n{preview}")
+        
         return {
             "success": True,
-            "message": f"File created: {path}",
+            "message": f"File {action.lower()}: {path}",
             "path": path,
-            "size": len(content)
+            "size": len(content),
+            "lines": len(lines)
         }
     
     async def _read_file(self, args: Dict[str, Any]) -> Dict[str, Any]:
@@ -103,6 +114,7 @@ class MockToolExecutor:
         full_path = self.workspace_path / path
         
         if not full_path.exists():
+            logger.warning(f"📂 File not found: {path}")
             return {
                 "success": False,
                 "error": f"File not found: {path}"
@@ -110,14 +122,25 @@ class MockToolExecutor:
         
         try:
             content = full_path.read_text(encoding='utf-8')
-            logger.debug(f"Read file: {path} ({len(content)} bytes)")
+            lines = content.split('\n')
+            
+            # Show file content preview
+            preview = '\n'.join(lines[:5])
+            if len(lines) > 5:
+                preview += f"\n... ({len(lines) - 5} more lines)"
+            
+            logger.info(f"📖 Read file: {path} ({len(content)} bytes, {len(lines)} lines)")
+            logger.debug(f"📄 Content preview:\n{preview}")
+            
             return {
                 "success": True,
                 "content": content,
                 "path": path,
-                "size": len(content)
+                "size": len(content),
+                "lines": len(lines)
             }
         except Exception as e:
+            logger.error(f"❌ Error reading file {path}: {e}")
             return {
                 "success": False,
                 "error": f"Error reading file: {str(e)}"
@@ -131,6 +154,7 @@ class MockToolExecutor:
         full_path = self.workspace_path / path
         
         if not full_path.exists():
+            logger.warning(f"📂 Path not found: {path}")
             return {
                 "success": False,
                 "error": f"Path not found: {path}"
@@ -150,13 +174,22 @@ class MockToolExecutor:
                     if p.is_file()
                 ]
             
-            logger.debug(f"Listed {len(files)} files in {path}")
+            mode_str = "recursively" if recursive else "in"
+            logger.info(f"📂 Listed {len(files)} files {mode_str} {path}")
+            
+            # Show first few files
+            if files:
+                preview = files[:5]
+                logger.debug(f"📄 Files: {', '.join(preview)}" +
+                           (f" ... and {len(files)-5} more" if len(files) > 5 else ""))
+            
             return {
                 "success": True,
                 "files": files,
                 "count": len(files)
             }
         except Exception as e:
+            logger.error(f"❌ Error listing files in {path}: {e}")
             return {
                 "success": False,
                 "error": f"Error listing files: {str(e)}"
@@ -174,6 +207,7 @@ class MockToolExecutor:
         full_path = self.workspace_path / path
         
         if not full_path.exists():
+            logger.warning(f"📂 Path not found: {path}")
             return {"success": False, "error": f"Path not found: {path}"}
         
         try:
@@ -190,7 +224,11 @@ class MockToolExecutor:
                     except Exception:
                         pass
             
-            logger.debug(f"Search found {len(results)} matches for '{pattern}'")
+            logger.info(f"🔍 Search found {len(results)} matches for '{pattern}' in {path}")
+            if results:
+                logger.debug(f"📄 Matches: {', '.join(results[:3])}" +
+                           (f" ... and {len(results)-3} more" if len(results) > 3 else ""))
+            
             return {
                 "success": True,
                 "results": results,
@@ -198,6 +236,7 @@ class MockToolExecutor:
                 "pattern": pattern
             }
         except Exception as e:
+            logger.error(f"❌ Error searching in {path}: {e}")
             return {
                 "success": False,
                 "error": f"Error searching: {str(e)}"
@@ -228,16 +267,23 @@ class MockToolExecutor:
             return {"success": False, "error": "Missing 'path' argument"}
         
         full_path = self.workspace_path / path
+        dir_exists = full_path.exists()
+        action = "Already exists" if dir_exists else "Created"
         
         try:
             full_path.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Created directory: {path}")
+            
+            icon = "📁" if dir_exists else "✨"
+            logger.info(f"{icon} {action} directory: {path}")
+            
             return {
                 "success": True,
-                "message": f"Directory created: {path}",
-                "path": path
+                "message": f"Directory {action.lower()}: {path}",
+                "path": path,
+                "created": not dir_exists
             }
         except Exception as e:
+            logger.error(f"❌ Error creating directory {path}: {e}")
             return {
                 "success": False,
                 "error": f"Error creating directory: {str(e)}"
