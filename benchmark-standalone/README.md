@@ -64,16 +64,49 @@ pip install -e ".[dev]"
 
 ```yaml
 gateway:
-  ws_url: "ws://localhost:8000/ws/benchmark"  # Gateway WebSocket URL
-  timeout: 60
+  base_url: "http://localhost:80"
+  ws_url: "ws://localhost:80/api/v1/ws"
+  
+  # Аутентификация (выбрать один из вариантов)
+  auth_type: "internal"  # "internal" или "jwt"
+  
+  # Internal API Key (для auth_type: internal)
+  api_key: "change-me-in-production"
+  
+  # JWT аутентификация (для auth_type: jwt)
+  jwt:
+    auth_url: "http://localhost:80/oauth/token"
+    username: "admin@example.com"
+    password: "admin123"
+    client_id: "benchmark-client"
 
 database:
-  url: "sqlite:///data/metrics.db"  # Локальная база метрик
+  url: "sqlite:///data/metrics.db"
 
 benchmark:
-  tasks_file: "tasks.yaml"          # Файл с задачами
-  test_project: "./test_project"    # Flutter проект для валидации
-  enable_validation: true           # Включить автоматическую валидацию
+  tasks_file: "tasks.yaml"
+  test_project: "./test_project"
+  enable_validation: true
+```
+
+### Аутентификация
+
+**Вариант 1: Internal API Key (по умолчанию)**
+```yaml
+gateway:
+  auth_type: "internal"
+  api_key: "change-me-in-production"
+```
+
+**Вариант 2: JWT Token (OAuth2)**
+```yaml
+gateway:
+  auth_type: "jwt"
+  jwt:
+    auth_url: "http://localhost:80/oauth/token"
+    username: "your-email@example.com"
+    password: "your-password"
+    client_id: "benchmark-client"
 ```
 
 ## Development Tools

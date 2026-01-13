@@ -3,6 +3,7 @@ Benchmark Standalone - независимое приложение для тес
 
 Общается с backend через Gateway WebSocket API.
 """
+from .auth import AuthManager
 from .client import GatewayClient
 from .collector import MetricsCollector
 from .database import close_db, get_db, init_database, init_db
@@ -23,6 +24,7 @@ from .validator import TaskValidator
 __version__ = "1.0.0"
 
 __all__ = [
+    "AuthManager",
     "GatewayClient",
     "MetricsCollector",
     "MockToolExecutor",

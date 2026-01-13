@@ -22,6 +22,7 @@ from uuid import UUID
 import yaml
 
 from src import (
+    AuthManager,
     GatewayClient,
     MetricsCollector,
     MockToolExecutor,
@@ -56,11 +57,14 @@ class BenchmarkRunner:
         self.config = config
         self.tasks: List[Dict[str, Any]] = []
         
+        # Initialize auth manager
+        auth_manager = AuthManager(config['gateway'])
+        
         # Initialize components
         self.client = GatewayClient(
             base_url=config['gateway']['base_url'],
             ws_url=config['gateway']['ws_url'],
-            api_key=config['gateway']['api_key'],
+            auth_manager=auth_manager,
             timeout=config['gateway']['timeout'],
             reconnect_attempts=config['gateway']['reconnect_attempts'],
             reconnect_delay=config['gateway']['reconnect_delay']

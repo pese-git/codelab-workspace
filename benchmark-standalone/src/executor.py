@@ -57,6 +57,8 @@ class MockToolExecutor:
                 return await self._search_in_code(arguments)
             elif tool_name == "apply_diff":
                 return await self._apply_diff(arguments)
+            elif tool_name == "create_directory":
+                return await self._create_directory(arguments)
             else:
                 logger.warning(f"Unknown tool: {tool_name}")
                 return {
@@ -204,7 +206,6 @@ class MockToolExecutor:
     async def _apply_diff(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Apply diff tool (simplified implementation)."""
         path = args.get('path', '')
-        diff = args.get('diff', '')
         
         if not path:
             return {"success": False, "error": "Missing 'path' argument"}
@@ -218,3 +219,26 @@ class MockToolExecutor:
             "message": f"Diff applied to: {path}",
             "path": path
         }
+    
+    async def _create_directory(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Create directory tool."""
+        path = args.get('path', '')
+        
+        if not path:
+            return {"success": False, "error": "Missing 'path' argument"}
+        
+        full_path = self.workspace_path / path
+        
+        try:
+            full_path.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Created directory: {path}")
+            return {
+                "success": True,
+                "message": f"Directory created: {path}",
+                "path": path
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Error creating directory: {str(e)}"
+            }

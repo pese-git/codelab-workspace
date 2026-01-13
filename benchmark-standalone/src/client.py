@@ -15,6 +15,7 @@ from uuid import UUID
 import httpx
 import websockets
 
+from .auth import AuthManager
 from .collector import MetricsCollector
 from .executor import MockToolExecutor
 from .validator import TaskValidator
@@ -27,13 +28,14 @@ class GatewayClient:
     WebSocket клиент для общения с Gateway.
     
     Единственная точка взаимодействия с backend сервисами.
+    Поддерживает Internal API Key и JWT аутентификацию.
     """
     
     def __init__(
         self,
         base_url: str,
         ws_url: str,
-        api_key: str,
+        auth_manager: AuthManager,
         timeout: int = 60,
         reconnect_attempts: int = 3,
         reconnect_delay: int = 5
@@ -44,14 +46,14 @@ class GatewayClient:
         Args:
             base_url: Gateway base URL (e.g., http://localhost:8000)
             ws_url: Gateway WebSocket URL base (e.g., ws://localhost:8000/ws)
-            api_key: Internal API key for authentication
+            auth_manager: Authentication manager
             timeout: Message timeout in seconds
             reconnect_attempts: Number of reconnection attempts
             reconnect_delay: Delay between reconnection attempts
         """
         self.base_url = base_url
         self.ws_url = ws_url
-        self.api_key = api_key
+        self.auth_manager = auth_manager
         self.timeout = timeout
         self.reconnect_attempts = reconnect_attempts
         self.reconnect_delay = reconnect_delay
@@ -65,10 +67,12 @@ class GatewayClient:
         Returns:
             Session ID
         """
+        headers = await self.auth_manager.get_headers()
+        
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{self.base_url}/api/v1/sessions",
-                headers={"X-Internal-Auth": self.api_key}
+                headers=headers
             )
             response.raise_for_status()
             data = response.json()

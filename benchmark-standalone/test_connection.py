@@ -4,7 +4,7 @@ Test Connection Script - проверка подключения к Gateway.
 
 Usage:
     python test_connection.py
-    python test_connection.py --ws-url ws://localhost:8000/ws/benchmark
+    python test_connection.py --ws-url ws://localhost:8000/ws
 """
 import argparse
 import asyncio
@@ -24,14 +24,14 @@ logging.basicConfig(
 logger = logging.getLogger("test_connection")
 
 
-async def test_gateway_connection(base_url: str, ws_url: str, api_key: str) -> bool:
+async def test_gateway_connection(base_url: str, ws_url: str, gateway_config: dict) -> bool:
     """
     Test connection to Gateway WebSocket.
     
     Args:
         base_url: Gateway base URL
         ws_url: Gateway WebSocket URL base
-        api_key: Internal API key
+        gateway_config: Gateway configuration dict
         
     Returns:
         True if connection successful
@@ -39,6 +39,12 @@ async def test_gateway_connection(base_url: str, ws_url: str, api_key: str) -> b
     logger.info(f"Testing connection to Gateway: {base_url}")
     
     try:
+        from src.auth import AuthManager
+        
+        # Initialize auth manager
+        auth_manager = AuthManager(gateway_config)
+        headers = await auth_manager.get_headers()
+        
         # Test HTTP endpoint
         async with httpx.AsyncClient() as client:
             # Try /api/v1/health first (nginx), fallback to /health (direct)
@@ -54,7 +60,7 @@ async def test_gateway_connection(base_url: str, ws_url: str, api_key: str) -> b
             # Create session
             response = await client.post(
                 f"{base_url}/api/v1/sessions",
-                headers={"X-Internal-Auth": api_key}
+                headers=headers
             )
             response.raise_for_status()
             session_id = response.json()['session_id']
@@ -115,7 +121,7 @@ async def test_database(db_url: str) -> bool:
         logger.info("✓ Database initialized")
         
         # Test session
-        async for db in get_db():
+        async for _db in get_db():
             logger.info("✓ Database session created")
             break
         
@@ -166,8 +172,8 @@ async def main():
     # Get URLs
     base_url = config.get('gateway', {}).get('base_url', 'http://localhost:8000')
     ws_url = args.ws_url or config.get('gateway', {}).get('ws_url', 'ws://localhost:8000/ws')
-    api_key = config.get('gateway', {}).get('api_key', 'change-me-internal-key')
-    db_url = args.db_url or config.get('gateway', {}).get('url', 'sqlite:///data/metrics.db')
+    db_url = args.db_url or config.get('database', {}).get('url', 'sqlite:///data/metrics.db')
+    gateway_config = config.get('gateway', {})
     
     logger.info("\n" + "="*60)
     logger.info("BENCHMARK STANDALONE - CONNECTION TEST")
@@ -176,7 +182,7 @@ async def main():
     # Test Gateway connection
     logger.info("Test 1: Gateway WebSocket Connection")
     logger.info("-" * 60)
-    gateway_ok = await test_gateway_connection(base_url, ws_url, api_key)
+    gateway_ok = await test_gateway_connection(base_url, ws_url, gateway_config)
     
     logger.info("\n" + "-" * 60 + "\n")
     
@@ -196,7 +202,7 @@ async def main():
     if gateway_ok and db_ok:
         logger.info("✓ All tests passed! Ready to run benchmark.")
         logger.info("\nNext steps:")
-        logger.info("  python main.py --task-id task_001")
+        logger.info("  uv run python main.py --task-id task_001")
         return 0
     else:
         logger.error("✗ Some tests failed. Please check the errors above.")
