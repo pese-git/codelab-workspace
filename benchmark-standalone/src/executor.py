@@ -306,13 +306,23 @@ class MockToolExecutor:
             return {"success": False, "error": "Missing 'command' argument"}
         
         # For safety, only allow specific safe commands
-        safe_commands = ['dart', 'flutter', 'pub', 'analyze', 'test']
+        safe_commands = ['dart', 'flutter', 'pub', 'analyze', 'test', 'format']
         command_parts = command.split()
+        
         if not command_parts or command_parts[0] not in safe_commands:
             logger.warning(f"⚠️ Blocked unsafe command: {command}")
             return {
                 "success": False,
                 "error": f"Command not allowed: {command_parts[0] if command_parts else 'empty'}"
+            }
+        
+        # Block long-running commands that don't terminate
+        blocked_subcommands = ['run', 'serve', 'attach', 'drive']
+        if len(command_parts) > 1 and command_parts[1] in blocked_subcommands:
+            logger.warning(f"⚠️ Blocked long-running command: {command}")
+            return {
+                "success": False,
+                "error": f"Long-running command not allowed: {command_parts[1]}"
             }
         
         try:
