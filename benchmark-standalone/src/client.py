@@ -116,6 +116,7 @@ class GatewayClient:
         has_error = False
         tool_calls_count = 0
         agent_switches_count = 0
+        last_write_file_time = None
         
         try:
             # Connect to WebSocket with session_id
@@ -160,9 +161,25 @@ class GatewayClient:
                             tool_name = msg.get("tool_name")
                             arguments = msg.get("arguments", {})
                             
+                            # Log tool call with key parameters
+                            params_str = ""
+                            if tool_name in ["write_file", "write_to_file"]:
+                                path = arguments.get("path", "")
+                                content_len = len(arguments.get("content", ""))
+                                params_str = f"path={path}, content_len={content_len}"
+                            elif tool_name == "read_file":
+                                path = arguments.get("path", "")
+                                params_str = f"path={path}"
+                            elif tool_name == "execute_command":
+                                command = arguments.get("command", "")
+                                params_str = f"command='{command}'"
+                            elif tool_name in ["search_files", "search_in_code"]:
+                                pattern = arguments.get("pattern", arguments.get("regex", ""))
+                                params_str = f"pattern='{pattern}'"
+                            
                             logger.info(
                                 f"🔧 Tool call #{tool_calls_count}: {tool_name} "
-                                f"(call_id={call_id[:8]}...)"
+                                f"({params_str}) (call_id={call_id[:8]}...)"
                             )
                             
                             # Execute tool locally
@@ -171,6 +188,11 @@ class GatewayClient:
                                 tool_name, arguments
                             )
                             duration = time.time() - start_time
+                            
+                            # Track last write_file operation
+                            if tool_name in ["write_file", "write_to_file"]:
+                                last_write_file_time = time.time()
+                                logger.debug(f"Tracked write_file at {last_write_file_time}")
                             
                             success_icon = "✅" if tool_result.get('success') else "❌"
                             logger.info(
@@ -235,6 +257,16 @@ class GatewayClient:
             success = not has_error and len(response_text) > 0
             
             if validator and success:
+                # Wait for file operations to complete if there were any write_file calls
+                if last_write_file_time:
+                    time_since_last_write = time.time() - last_write_file_time
+                    if time_since_last_write < 2.0:
+                        wait_time = 2.0 - time_since_last_write
+                        logger.info(f"⏳ Waiting {wait_time:.1f}s for file operations to complete...")
+                        await asyncio.sleep(wait_time)
+                    else:
+                        logger.debug(f"File operations completed {time_since_last_write:.1f}s ago")
+                
                 logger.info("🔍 Running validation checks...")
                 validation = await validator.validate_task(task)
                 

@@ -4,6 +4,7 @@ Task Validator - автоматическая проверка выполнен�
 Адаптировано из codelab-ai-service/benchmark/scripts/task_validator.py
 """
 import asyncio
+import hashlib
 import logging
 import subprocess
 from pathlib import Path
@@ -154,19 +155,11 @@ class TaskValidator:
             }
         
         try:
-            # Wait for file system to sync (especially important for Docker/network filesystems)
-            # Increased delay to ensure file is written before validation
-            await asyncio.sleep(2.0)
+            # Simple approach: just wait a fixed time for agent to complete
+            # This is more reliable than trying to detect file changes
+            await asyncio.sleep(1.0)
             
-            # Clear dart analysis cache to ensure fresh analysis
-            cache_dir = self.project_path / '.dart_tool' / 'analysis_driver'
-            if cache_dir.exists():
-                import shutil
-                try:
-                    shutil.rmtree(cache_dir)
-                    logger.debug(f"Cleared dart analysis cache: {cache_dir}")
-                except Exception as e:
-                    logger.warning(f"Failed to clear cache: {e}")
+            # NOTE: Do NOT clear .dart_tool cache as it removes Flutter dependencies
             
             # Run dart analyze on specific file
             result = subprocess.run(
@@ -177,9 +170,15 @@ class TaskValidator:
                 timeout=30
             )
             
+            # Debug output
+            logger.debug(f"dart analyze return code: {result.returncode}")
+            logger.debug(f"dart analyze stdout: {result.stdout[:200]}")
+            
             # Check return code: 0 = success, non-zero = errors
             # Also check for "error •" pattern which indicates actual errors (not just the word "error")
             has_errors = result.returncode != 0 or 'error •' in result.stdout.lower()
+            
+            logger.info(f"Syntax check: return_code={result.returncode}, has_error_pattern={'error •' in result.stdout.lower()}, has_errors={has_errors}")
             
             return {
                 "passed": not has_errors,
@@ -291,3 +290,20 @@ class TaskValidator:
         }
         
         return stats
+    
+    def _get_file_hash(self, file_path: Path) -> str:
+        """
+        Calculate MD5 hash of file content.
+        
+        Args:
+            file_path: Path to file
+            
+        Returns:
+            MD5 hash as hex string
+        """
+        try:
+            with open(file_path, 'rb') as f:
+                return hashlib.md5(f.read()).hexdigest()
+        except Exception as e:
+            logger.warning(f"Failed to calculate hash for {file_path}: {e}")
+            return ""

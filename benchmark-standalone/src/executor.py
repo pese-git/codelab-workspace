@@ -59,6 +59,8 @@ class MockToolExecutor:
                 return await self._apply_diff(arguments)
             elif tool_name == "create_directory":
                 return await self._create_directory(arguments)
+            elif tool_name == "execute_command":
+                return await self._execute_command(arguments)
             else:
                 logger.warning(f"Unknown tool: {tool_name}")
                 return {
@@ -85,7 +87,13 @@ class MockToolExecutor:
         action = "Updated" if file_exists else "Created"
         
         full_path.parent.mkdir(parents=True, exist_ok=True)
-        full_path.write_text(content, encoding='utf-8')
+        
+        # Write file and ensure it's flushed to disk
+        with open(full_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+            f.flush()
+            import os
+            os.fsync(f.fileno())
         
         # Show file content preview
         lines = content.split('\n')
@@ -287,4 +295,55 @@ class MockToolExecutor:
             return {
                 "success": False,
                 "error": f"Error creating directory: {str(e)}"
+            }
+    
+    async def _execute_command(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute command tool."""
+        command = args.get('command', '')
+        cwd = args.get('cwd', '.')
+        
+        if not command:
+            return {"success": False, "error": "Missing 'command' argument"}
+        
+        # For safety, only allow specific safe commands
+        safe_commands = ['dart', 'flutter', 'pub', 'analyze', 'test']
+        command_parts = command.split()
+        if not command_parts or command_parts[0] not in safe_commands:
+            logger.warning(f"⚠️ Blocked unsafe command: {command}")
+            return {
+                "success": False,
+                "error": f"Command not allowed: {command_parts[0] if command_parts else 'empty'}"
+            }
+        
+        try:
+            import subprocess
+            
+            full_cwd = self.workspace_path / cwd if cwd != '.' else self.workspace_path
+            
+            result = subprocess.run(
+                command_parts,
+                cwd=str(full_cwd),
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            
+            logger.info(f"🔧 Executed command: {command} (return_code={result.returncode})")
+            
+            return {
+                "success": result.returncode == 0,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "return_code": result.returncode
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "success": False,
+                "error": "Command timed out"
+            }
+        except Exception as e:
+            logger.error(f"❌ Error executing command {command}: {e}")
+            return {
+                "success": False,
+                "error": f"Error executing command: {str(e)}"
             }
