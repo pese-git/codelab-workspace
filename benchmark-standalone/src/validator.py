@@ -3,6 +3,7 @@ Task Validator - автоматическая проверка выполнен�
 
 Адаптировано из codelab-ai-service/benchmark/scripts/task_validator.py
 """
+import asyncio
 import logging
 import subprocess
 from pathlib import Path
@@ -153,6 +154,19 @@ class TaskValidator:
             }
         
         try:
+            # Wait a bit for file system to sync (especially important for Docker/network filesystems)
+            await asyncio.sleep(0.5)
+            
+            # Clear dart analysis cache to ensure fresh analysis
+            cache_dir = self.project_path / '.dart_tool' / 'analysis_driver'
+            if cache_dir.exists():
+                import shutil
+                try:
+                    shutil.rmtree(cache_dir)
+                    logger.debug(f"Cleared dart analysis cache: {cache_dir}")
+                except Exception as e:
+                    logger.warning(f"Failed to clear cache: {e}")
+            
             # Run dart analyze on specific file
             result = subprocess.run(
                 ['dart', 'analyze', str(full_path)],
