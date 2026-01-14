@@ -154,8 +154,9 @@ class TaskValidator:
             }
         
         try:
-            # Wait a bit for file system to sync (especially important for Docker/network filesystems)
-            await asyncio.sleep(0.5)
+            # Wait for file system to sync (especially important for Docker/network filesystems)
+            # Increased delay to ensure file is written before validation
+            await asyncio.sleep(2.0)
             
             # Clear dart analysis cache to ensure fresh analysis
             cache_dir = self.project_path / '.dart_tool' / 'analysis_driver'
