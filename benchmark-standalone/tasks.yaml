@@ -217,13 +217,15 @@ tasks:
     category: medium
     type: coding
     title: "Добавление анимации к виджету"
-    description: "Добавить анимацию появления/исчезновения к существующему виджету с использованием AnimatedOpacity"
+    description: "Создать новый файл lib/widgets/animated_widget.dart с StatefulWidget AnimatedWidget, который использует AnimatedOpacity для анимации появления/исчезновения. Виджет должен принимать параметр child (Widget) и автоматически анимировать его появление при создании. Использовать AnimationController с длительностью 500ms и Curves.easeInOut."
     expected_agent: "Coder"
     expected_files:
       - "lib/widgets/animated_widget.dart"
     success_criteria:
-      - "Анимация корректно работает"
-      - "Виджет компилируется"
+      - "Файл создан с правильной структурой StatefulWidget"
+      - "AnimatedOpacity корректно интегрирован"
+      - "AnimationController настроен с правильными параметрами"
+      - "Виджет компилируется без ошибок"
     auto_check:
       - type: "file_exists"
         params:
