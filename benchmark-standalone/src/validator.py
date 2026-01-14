@@ -162,8 +162,9 @@ class TaskValidator:
                 timeout=30
             )
             
-            # Check if no errors (warnings are ok)
-            has_errors = 'error' in result.stdout.lower() or result.returncode != 0
+            # Check return code: 0 = success, non-zero = errors
+            # Also check for "error •" pattern which indicates actual errors (not just the word "error")
+            has_errors = result.returncode != 0 or 'error •' in result.stdout.lower()
             
             return {
                 "passed": not has_errors,
