@@ -453,13 +453,15 @@ tasks:
     category: medium
     type: coding
     title: "Создание responsive layout"
-    description: "Создать responsive layout с использованием LayoutBuilder и MediaQuery"
+    description: "Создать новый файл lib/widgets/responsive_layout.dart с StatelessWidget ResponsiveLayout, который использует LayoutBuilder и MediaQuery для адаптивного отображения контента. Виджет должен принимать параметр child (Widget) и отображать его по-разному на мобильных (ширина < 600px), планшетах (600-900px) и десктопах (> 900px). Использовать MediaQuery.of(context).size.width для определения размера экрана."
     expected_agent: "Coder"
     expected_files:
       - "lib/widgets/responsive_layout.dart"
     success_criteria:
-      - "Layout адаптируется к размерам"
-      - "Использует правильные виджеты"
+      - "Файл создан в правильной директории lib/widgets/"
+      - "Layout адаптируется к размерам экрана"
+      - "Использует LayoutBuilder и MediaQuery"
+      - "Код компилируется без ошибок"
     auto_check:
       - type: "file_exists"
         params:
