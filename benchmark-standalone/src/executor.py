@@ -328,7 +328,17 @@ class MockToolExecutor:
                 timeout=30
             )
             
-            logger.info(f"🔧 Executed command: {command} (return_code={result.returncode})")
+            # Log command result with preview
+            success_icon = "✅" if result.returncode == 0 else "❌"
+            logger.info(f"{success_icon} Executed command: {command} (return_code={result.returncode})")
+            
+            if result.stdout:
+                stdout_preview = result.stdout[:200].replace('\n', ' ')
+                logger.info(f"   stdout: {stdout_preview}{'...' if len(result.stdout) > 200 else ''}")
+            
+            if result.stderr:
+                stderr_preview = result.stderr[:200].replace('\n', ' ')
+                logger.warning(f"   stderr: {stderr_preview}{'...' if len(result.stderr) > 200 else ''}")
             
             return {
                 "success": result.returncode == 0,

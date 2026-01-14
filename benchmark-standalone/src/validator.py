@@ -174,16 +174,27 @@ class TaskValidator:
             logger.debug(f"dart analyze return code: {result.returncode}")
             logger.debug(f"dart analyze stdout: {result.stdout[:200]}")
             
-            # Check return code: 0 = success, non-zero = errors
-            # Also check for "error •" pattern which indicates actual errors (not just the word "error")
-            has_errors = result.returncode != 0 or 'error •' in result.stdout.lower()
+            # Check if THIS specific file has errors
+            # dart analyze may return non-zero due to errors in OTHER files
+            # So we need to check if the output contains errors for THIS file
+            file_has_errors = False
+            if result.stdout:
+                # Check if there are errors specifically for this file
+                for line in result.stdout.split('\n'):
+                    if file_path in line and 'error' in line.lower():
+                        file_has_errors = True
+                        break
             
-            logger.info(f"Syntax check: return_code={result.returncode}, has_error_pattern={'error •' in result.stdout.lower()}, has_errors={has_errors}")
+            # If no errors found for this file, check if "No issues found!" is in output
+            if not file_has_errors and 'no issues found' in result.stdout.lower():
+                file_has_errors = False
+            
+            logger.info(f"Syntax check for {file_path}: file_has_errors={file_has_errors}, return_code={result.returncode}")
             
             return {
-                "passed": not has_errors,
-                "message": f"Syntax {'valid' if not has_errors else 'invalid'}: {file_path}",
-                "details": result.stdout if has_errors else None
+                "passed": not file_has_errors,
+                "message": f"Syntax {'valid' if not file_has_errors else 'invalid'}: {file_path}",
+                "details": result.stdout if file_has_errors else None
             }
             
         except subprocess.TimeoutExpired:
