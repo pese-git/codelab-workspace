@@ -1,0 +1,48 @@
+# Конфигурация benchmark-standalone
+
+# Gateway через nginx (порт 80)
+gateway:
+  base_url: "http://localhost:80"
+  ws_url: "ws://localhost:80/api/v1/ws"  # Nginx проксирует на gateway:8000/ws/{session_id}
+  
+  # Аутентификация (выбрать один из вариантов)
+  auth_type: "jwt"  # "internal" или "jwt"
+  
+  # Internal API Key (для auth_type: internal)
+  api_key: "change-me-in-production"  # X-Internal-Auth (из docker-compose)
+  
+  # JWT аутентификация (для auth_type: jwt)
+  jwt:
+    auth_url: "http://localhost:80/oauth/token"  # Auth service OAuth endpoint
+    username: "admin"  # Master key из AUTH_SERVICE__MASTER_KEY
+    password: "admin"
+    client_id: "codelab-flutter-app"
+    client_secret: ""
+  
+  timeout: 60
+  reconnect_attempts: 3
+  reconnect_delay: 5
+
+# База данных для метрик
+database:
+  url: "sqlite:///data/metrics.db"
+  echo: false
+
+# Настройки benchmark
+benchmark:
+  tasks_file: "tasks.yaml"
+  test_project: "./test_project"
+  enable_validation: true
+  max_iterations: 10  # Максимум итераций tool execution
+
+# Генерация отчетов
+reporting:
+  output_dir: "./reports"
+  format: "markdown"
+  include_details: true
+
+# Логирование
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/benchmark.log"
