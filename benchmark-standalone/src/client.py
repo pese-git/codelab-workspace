@@ -104,9 +104,16 @@ class GatewayClient:
         task_description = task.get('description', '')
         task_id = task.get('id', 'unknown')
         task_title = task.get('title', '')
+        task_category = task.get('category', 'simple')
         
         logger.info(f"🚀 Executing task {task_id}: {task_title}")
         logger.info(f"📋 Description: {task_description[:100]}...")
+        
+        # Adjust timeout based on task complexity
+        original_timeout = self.timeout
+        if task_category in ['complex', 'mixed']:
+            self.timeout = 300  # 5 minutes for complex tasks
+            logger.info(f"⏱️  Increased timeout to {self.timeout}s for {task_category} task")
         
         # Create session first
         session_id = await self.create_session()
@@ -117,6 +124,7 @@ class GatewayClient:
         tool_calls_count = 0
         agent_switches_count = 0
         last_write_file_time = None
+        MAX_TOOL_CALLS = 100  # Prevent infinite loops
         
         try:
             # Connect to WebSocket with session_id
@@ -157,6 +165,13 @@ class GatewayClient:
                         
                         elif msg_type == "tool_call":
                             tool_calls_count += 1
+                            
+                            # Check tool call limit
+                            if tool_calls_count > MAX_TOOL_CALLS:
+                                logger.warning(f"⚠️ Reached max tool calls limit: {MAX_TOOL_CALLS}")
+                                has_error = True
+                                break
+                            
                             call_id = msg.get("call_id")
                             tool_name = msg.get("tool_name")
                             arguments = msg.get("arguments", {})
@@ -306,6 +321,9 @@ class GatewayClient:
         except Exception as e:
             logger.error(f"Task execution error: {e}", exc_info=True)
             return False
+        finally:
+            # Restore original timeout
+            self.timeout = original_timeout
     
     async def test_connection(self) -> bool:
         """
