@@ -71,16 +71,17 @@ tasks:
     category: simple
     type: question
     title: "Поиск определения функции"
-    description: "Найти определение функции buildUserList в проекте и указать в каком файле и на какой строке оно находится"
+    description: "Найти определение функции buildUserList в проекте и указать в каком файле и на какой строке оно находится. Функция находится в файле lib/utils/user_utils.dart."
     expected_agent: "Ask"
     expected_files: []
     success_criteria:
-      - "Правильно указан файл и строка"
-      - "Функция существует в указанном месте"
+      - "Правильно указан файл lib/utils/user_utils.dart"
+      - "Функция найдена с помощью search_in_code"
+      - "Агент прочитал файл и определил строку"
     auto_check:
       - type: "contains_text"
         params:
-          path: "expected_file"
+          path: "lib/utils/user_utils.dart"
           text: "buildUserList"
     estimated_time: "1 минута"
     complexity_score: 2

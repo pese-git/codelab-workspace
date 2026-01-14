@@ -205,15 +205,16 @@ class MockToolExecutor:
     
     async def _search_in_code(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Search in code tool."""
-        pattern = args.get('pattern', args.get('regex', args.get('query', '')))
+        # Tool registry uses 'query' parameter, but also support 'pattern' for compatibility
+        pattern = args.get('query', args.get('pattern', args.get('regex', '')))
         path = args.get('path', '.')
         file_pattern = args.get('file_pattern', '*.dart')
         
-        if not pattern or pattern == 'False':
-            logger.warning(f"Invalid search pattern: '{pattern}'")
+        if not pattern or pattern == 'False' or pattern == '':
+            logger.warning(f"Invalid search pattern: '{pattern}', args: {args}")
             return {
                 "success": False,
-                "error": f"Invalid or missing 'pattern' argument: '{pattern}'"
+                "error": f"Invalid or missing 'query' parameter. Received: {args}"
             }
         
         full_path = self.workspace_path / path
