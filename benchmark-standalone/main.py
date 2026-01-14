@@ -112,7 +112,22 @@ class BenchmarkRunner:
         
         elif args.task_range:
             import re
-            start_str, end_str = args.task_range.split('-', 1)
+            
+            # Validate task_range format
+            if '-' not in args.task_range:
+                raise ValueError(
+                    f"Invalid task_range format: '{args.task_range}'. "
+                    "Expected format: 'start-end' (e.g., '1-10')"
+                )
+            
+            parts = args.task_range.split('-', 1)
+            if len(parts) != 2:
+                raise ValueError(
+                    f"Invalid task_range format: '{args.task_range}'. "
+                    "Expected format: 'start-end' (e.g., '1-10')"
+                )
+            
+            start_str, end_str = parts
             start_match = re.search(r'(\d+)', start_str)
             end_match = re.search(r'(\d+)', end_str)
             
@@ -120,10 +135,16 @@ class BenchmarkRunner:
                 start_num = int(start_match.group(1))
                 end_num = int(end_match.group(1))
                 
-                self.tasks = [
-                    t for t in self.tasks
-                    if start_num <= int(re.search(r'(\d+)', t['id']).group(1)) <= end_num
-                ]
+                # Filter tasks with proper None check to avoid AttributeError
+                filtered_tasks = []
+                for t in self.tasks:
+                    task_id_match = re.search(r'(\d+)', t['id'])
+                    if task_id_match:
+                        task_num = int(task_id_match.group(1))
+                        if start_num <= task_num <= end_num:
+                            filtered_tasks.append(t)
+                
+                self.tasks = filtered_tasks
                 logger.info(f"Running tasks {start_num}-{end_num} ({len(self.tasks)} tasks)")
         
         elif args.category:

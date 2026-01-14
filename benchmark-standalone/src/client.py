@@ -198,9 +198,11 @@ class GatewayClient:
                         
                         elif msg_type == "agent_switched":
                             agent_switches_count += 1
-                            from_agent = msg.get("from_agent")
-                            to_agent = msg.get("to_agent")
-                            reason = msg.get("reason", "")
+                            # Extract from metadata (new format) or root (legacy format)
+                            metadata = msg.get("metadata", {})
+                            from_agent = metadata.get("from_agent") or msg.get("from_agent")
+                            to_agent = metadata.get("to_agent") or msg.get("to_agent")
+                            reason = metadata.get("reason") or msg.get("reason", "")
                             
                             logger.info(f"🔄 Agent switched: {from_agent} → {to_agent} ({reason})")
                             

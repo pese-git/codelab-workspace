@@ -10,6 +10,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from .models import (
     AgentSwitch,
@@ -340,11 +341,11 @@ class MetricsCollector:
         if not experiment:
             raise ValueError(f"Experiment not found: {experiment_id}")
         
-        # Get task executions
+        # Get task executions with LLM calls eagerly loaded (fixes N+1 query problem)
         result = await self.db.execute(
-            select(TaskExecution).where(
-                TaskExecution.experiment_id == str(experiment_id)
-            )
+            select(TaskExecution)
+            .where(TaskExecution.experiment_id == str(experiment_id))
+            .options(selectinload(TaskExecution.llm_calls))
         )
         tasks = result.scalars().all()
         
@@ -352,17 +353,14 @@ class MetricsCollector:
         successful_tasks = sum(1 for t in tasks if t.success is True)
         failed_tasks = sum(1 for t in tasks if t.success is False)
         
-        # Calculate total tokens
+        # Calculate total tokens from eagerly loaded LLM calls
         total_input_tokens = 0
         total_output_tokens = 0
         
         for task in tasks:
-            result = await self.db.execute(
-                select(LLMCall).where(LLMCall.task_execution_id == task.id)
-            )
-            llm_calls = result.scalars().all()
-            total_input_tokens += sum(call.input_tokens for call in llm_calls)
-            total_output_tokens += sum(call.output_tokens for call in llm_calls)
+            # Access the pre-loaded llm_calls relationship
+            total_input_tokens += sum(call.input_tokens for call in task.llm_calls)
+            total_output_tokens += sum(call.output_tokens for call in task.llm_calls)
         
         # Calculate cost (example pricing for GPT-4)
         cost = (total_input_tokens * 0.003 + total_output_tokens * 0.015) / 1000
