@@ -2,20 +2,60 @@
 
 ## Проблема
 
-При открытии проекта через "Open Project" в IDE workspace не становился видимым автоматически. Пользователь видел пустой экран вместо файлового дерева и редактора.
+При открытии проекта через "Open Project" в IDE workspace не становился видимым автоматически. Пользователь видел пустой экран вместо файлового дерева и редактора. Также AI ассистент не получал корректную информацию о workspace.
 
 ## Причина
 
 Проблема была в логике обработки события открытия проекта:
 
-1. В [`start_wizard_panel.dart`](codelab_ide/packages/codelab_engine/lib/src/widgets/start_wizard/start_wizard_panel.dart:36) при успешном открытии проекта вызывался callback `onAction.call('')` с пустой строкой
-2. Не было проверки, что проект действительно открылся (path не пустой)
-3. В [`ide_root_page.dart`](codelab_ide/apps/codelab_ide/lib/pages/ide_root_page.dart:121) callback просто устанавливал `_projectOpened = true` без дополнительных действий
-4. Sidebar с файловым деревом не открывался автоматически
+1. В [`start_wizard_bloc.dart`](codelab_ide/packages/codelab_engine/lib/src/widgets/start_wizard/start_wizard_bloc.dart:108) проект устанавливался в `ProjectManagerService` даже с пустым path (когда пользователь отменял выбор)
+2. В [`start_wizard_panel.dart`](codelab_ide/packages/codelab_engine/lib/src/widgets/start_wizard/start_wizard_panel.dart:36) при успешном открытии проекта вызывался callback `onAction.call('')` с пустой строкой
+3. Не было проверки, что проект действительно открылся (path не пустой)
+4. В [`ide_root_page.dart`](codelab_ide/apps/codelab_ide/lib/pages/ide_root_page.dart:121) callback просто устанавливал `_projectOpened = true` без дополнительных действий
+5. Sidebar с файловым деревом не открывался автоматически
 
 ## Решение
 
-### 1. Исправление в `start_wizard_panel.dart`
+### 1. Исправление в `start_wizard_bloc.dart`
+
+**Было:**
+```dart
+result.match(
+  (error) => emit(StartWizardState.error(error.toString())),
+  (project) {
+    _projectManagerService.setCurrentProject(project);
+    // Инициализируем LSP для проекта
+    if (project.path.isNotEmpty) {
+      _lspService.initialize(project.path)
+      // ...
+    }
+    emit(StartWizardState.opened(project));
+  },
+);
+```
+
+**Стало:**
+```dart
+result.match(
+  (error) => emit(StartWizardState.error(error.toString())),
+  (project) {
+    // Устанавливаем проект только если он валидный (path не пустой)
+    if (project.path.isNotEmpty) {
+      _projectManagerService.setCurrentProject(project);
+      // Инициализируем LSP для проекта
+      _lspService.initialize(project.path)
+      // ...
+    }
+    emit(StartWizardState.opened(project));
+  },
+);
+```
+
+**Изменения:**
+- Проект устанавливается в `ProjectManagerService` только если `path` не пустой
+- Это гарантирует, что AI ассистент получит корректную информацию о workspace
+
+### 2. Исправление в `start_wizard_panel.dart`
 
 **Было:**
 ```dart
@@ -40,7 +80,7 @@ listener: (context, state) async {
 - Добавлена проверка `state.project.path.isNotEmpty` для валидации успешного открытия
 - Callback вызывается с явным значением `'project_opened'` вместо пустой строки
 
-### 2. Исправление в `ide_root_page.dart`
+### 3. Исправление в `ide_root_page.dart`
 
 **Было:**
 ```dart
@@ -80,9 +120,12 @@ emptySlot: engine.StartWizardPanel(
 2. ✅ Sidebar с файловым деревом открывается автоматически
 3. ✅ Пользователь сразу видит структуру проекта
 4. ✅ Проверяется валидность открытого проекта (непустой path)
+5. ✅ AI ассистент получает корректную информацию о workspace через `ProjectManagerService`
+6. ✅ Проект не устанавливается в `ProjectManagerService` если пользователь отменил выбор
 
 ## Затронутые файлы
 
+- [`codelab_ide/packages/codelab_engine/lib/src/widgets/start_wizard/start_wizard_bloc.dart`](codelab_ide/packages/codelab_engine/lib/src/widgets/start_wizard/start_wizard_bloc.dart)
 - [`codelab_ide/packages/codelab_engine/lib/src/widgets/start_wizard/start_wizard_panel.dart`](codelab_ide/packages/codelab_engine/lib/src/widgets/start_wizard/start_wizard_panel.dart)
 - [`codelab_ide/apps/codelab_ide/lib/pages/ide_root_page.dart`](codelab_ide/apps/codelab_ide/lib/pages/ide_root_page.dart)
 
@@ -96,3 +139,4 @@ emptySlot: engine.StartWizardPanel(
    - Workspace отображается
    - Sidebar с файловым деревом открыт
    - Файлы проекта видны в Explorer
+   - AI ассистент имеет доступ к workspace (можно проверить через команды работы с файлами)
