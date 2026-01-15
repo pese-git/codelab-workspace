@@ -5,7 +5,7 @@ Metrics Collector - сбор и хранение метрик benchmark эксп
 """
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from sqlalchemy import select
@@ -14,10 +14,12 @@ from sqlalchemy.orm import selectinload
 
 from .models import (
     AgentSwitch,
+    ExecutionPlan,
     Experiment,
     Hallucination,
     LLMCall,
     QualityEvaluation,
+    SubtaskExecution,
     TaskExecution,
     ToolCall,
 )
@@ -322,6 +324,301 @@ class MetricsCollector:
         logger.warning(f"Recorded hallucination: type={hallucination_type}")
         
         return UUID(hallucination.id)
+    
+    async def record_plan_created(
+        self,
+        task_execution_id: UUID,
+        plan_id: str,
+        original_task: str,
+        subtasks: List[Dict[str, Any]]
+    ) -> UUID:
+        """
+        Record execution plan creation.
+        
+        Args:
+            task_execution_id: Task execution UUID
+            plan_id: Plan identifier from agent-runtime
+            original_task: Original user task
+            subtasks: List of subtask definitions
+            
+        Returns:
+            Execution plan UUID
+        """
+        execution_plan = ExecutionPlan(
+            task_execution_id=str(task_execution_id),
+            plan_id=plan_id,
+            original_task=original_task,
+            subtask_count=len(subtasks),
+            created_at=datetime.now(timezone.utc),
+            is_complete=False
+        )
+        
+        self.db.add(execution_plan)
+        await self.db.commit()
+        await self.db.refresh(execution_plan)
+        
+        # Create subtask records
+        for idx, subtask_data in enumerate(subtasks):
+            subtask = SubtaskExecution(
+                plan_id=execution_plan.id,
+                subtask_id=subtask_data.get('id', f'subtask_{idx}'),
+                sequence_number=idx,
+                description=subtask_data.get('description', ''),
+                agent=subtask_data.get('agent', 'unknown'),
+                estimated_time=subtask_data.get('estimated_time'),
+                status='pending',
+                dependencies=subtask_data.get('dependencies', {})
+            )
+            self.db.add(subtask)
+        
+        await self.db.commit()
+        
+        logger.info(
+            f"📋 Recorded plan creation: plan_id={plan_id}, "
+            f"subtasks={len(subtasks)}, task_execution_id={task_execution_id}"
+        )
+        
+        return UUID(execution_plan.id)
+    
+    async def record_subtask_started(
+        self,
+        task_execution_id: UUID,
+        subtask_id: str,
+        description: str,
+        agent: str
+    ) -> Optional[UUID]:
+        """
+        Record subtask start.
+        
+        Args:
+            task_execution_id: Task execution UUID
+            subtask_id: Subtask identifier
+            description: Subtask description
+            agent: Agent handling the subtask
+            
+        Returns:
+            Subtask execution UUID or None if not found
+        """
+        # Find the execution plan for this task
+        result = await self.db.execute(
+            select(ExecutionPlan).where(
+                ExecutionPlan.task_execution_id == str(task_execution_id)
+            )
+        )
+        plan = result.scalar_one_or_none()
+        
+        if not plan:
+            logger.warning(f"No plan found for task_execution_id={task_execution_id}")
+            return None
+        
+        # Find the subtask
+        result = await self.db.execute(
+            select(SubtaskExecution).where(
+                SubtaskExecution.plan_id == plan.id,
+                SubtaskExecution.subtask_id == subtask_id
+            )
+        )
+        subtask = result.scalar_one_or_none()
+        
+        if not subtask:
+            logger.warning(f"Subtask not found: {subtask_id}")
+            return None
+        
+        # Update subtask status
+        subtask.status = 'in_progress'
+        subtask.started_at = datetime.now(timezone.utc)
+        
+        await self.db.commit()
+        
+        logger.info(
+            f"▶️  Recorded subtask start: subtask_id={subtask_id}, "
+            f"agent={agent}, description='{description[:50]}...'"
+        )
+        
+        return UUID(subtask.id)
+    
+    async def record_subtask_completed(
+        self,
+        task_execution_id: UUID,
+        subtask_id: str,
+        status: str,
+        result: Optional[str] = None,
+        error: Optional[str] = None
+    ) -> Optional[UUID]:
+        """
+        Record subtask completion.
+        
+        Args:
+            task_execution_id: Task execution UUID
+            subtask_id: Subtask identifier
+            status: Final status (completed, failed, skipped)
+            result: Optional result message
+            error: Optional error message
+            
+        Returns:
+            Subtask execution UUID or None if not found
+        """
+        # Find the execution plan for this task
+        result_query = await self.db.execute(
+            select(ExecutionPlan).where(
+                ExecutionPlan.task_execution_id == str(task_execution_id)
+            )
+        )
+        plan = result_query.scalar_one_or_none()
+        
+        if not plan:
+            logger.warning(f"No plan found for task_execution_id={task_execution_id}")
+            return None
+        
+        # Find the subtask
+        result_query = await self.db.execute(
+            select(SubtaskExecution).where(
+                SubtaskExecution.plan_id == plan.id,
+                SubtaskExecution.subtask_id == subtask_id
+            )
+        )
+        subtask = result_query.scalar_one_or_none()
+        
+        if not subtask:
+            logger.warning(f"Subtask not found: {subtask_id}")
+            return None
+        
+        # Update subtask
+        subtask.status = status
+        subtask.completed_at = datetime.now(timezone.utc)
+        subtask.result = result
+        subtask.error = error
+        
+        # Calculate duration
+        if subtask.started_at and subtask.completed_at:
+            started = subtask.started_at
+            completed = subtask.completed_at
+            
+            if started.tzinfo is None:
+                started = started.replace(tzinfo=timezone.utc)
+            if completed.tzinfo is None:
+                completed = completed.replace(tzinfo=timezone.utc)
+            
+            subtask.duration_seconds = (completed - started).total_seconds()
+        
+        await self.db.commit()
+        
+        status_icon = "✅" if status == "completed" else "❌" if status == "failed" else "⏭️"
+        logger.info(
+            f"{status_icon} Recorded subtask completion: subtask_id={subtask_id}, "
+            f"status={status}, duration={subtask.duration_seconds:.2f}s"
+        )
+        
+        return UUID(subtask.id)
+    
+    async def record_plan_completed(
+        self,
+        task_execution_id: UUID
+    ) -> Optional[UUID]:
+        """
+        Mark execution plan as completed.
+        
+        Args:
+            task_execution_id: Task execution UUID
+            
+        Returns:
+            Execution plan UUID or None if not found
+        """
+        result = await self.db.execute(
+            select(ExecutionPlan).where(
+                ExecutionPlan.task_execution_id == str(task_execution_id)
+            )
+        )
+        plan = result.scalar_one_or_none()
+        
+        if not plan:
+            logger.warning(f"No plan found for task_execution_id={task_execution_id}")
+            return None
+        
+        plan.is_complete = True
+        plan.completed_at = datetime.now(timezone.utc)
+        
+        await self.db.commit()
+        
+        logger.info(f"🏁 Recorded plan completion: plan_id={plan.plan_id}")
+        
+        return UUID(plan.id)
+    
+    async def get_plan_metrics(
+        self,
+        task_execution_id: UUID
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get planning metrics for a task.
+        
+        Args:
+            task_execution_id: Task execution UUID
+            
+        Returns:
+            Dictionary with plan metrics or None if no plan exists
+        """
+        result = await self.db.execute(
+            select(ExecutionPlan).where(
+                ExecutionPlan.task_execution_id == str(task_execution_id)
+            )
+        )
+        plan = result.scalar_one_or_none()
+        
+        if not plan:
+            return None
+        
+        # Get all subtasks
+        result = await self.db.execute(
+            select(SubtaskExecution)
+            .where(SubtaskExecution.plan_id == plan.id)
+            .order_by(SubtaskExecution.sequence_number)
+        )
+        subtasks = result.scalars().all()
+        
+        # Calculate statistics
+        total_subtasks = len(subtasks)
+        completed_subtasks = sum(1 for s in subtasks if s.status == 'completed')
+        failed_subtasks = sum(1 for s in subtasks if s.status == 'failed')
+        skipped_subtasks = sum(1 for s in subtasks if s.status == 'skipped')
+        
+        # Calculate total duration
+        total_duration = sum(
+            s.duration_seconds for s in subtasks
+            if s.duration_seconds is not None
+        )
+        
+        # Agent distribution
+        agent_counts = {}
+        for s in subtasks:
+            agent_counts[s.agent] = agent_counts.get(s.agent, 0) + 1
+        
+        return {
+            "plan_id": plan.plan_id,
+            "original_task": plan.original_task,
+            "created_at": plan.created_at.isoformat(),
+            "completed_at": plan.completed_at.isoformat() if plan.completed_at else None,
+            "is_complete": plan.is_complete,
+            "total_subtasks": total_subtasks,
+            "completed_subtasks": completed_subtasks,
+            "failed_subtasks": failed_subtasks,
+            "skipped_subtasks": skipped_subtasks,
+            "success_rate": completed_subtasks / total_subtasks if total_subtasks > 0 else 0.0,
+            "total_duration_seconds": total_duration,
+            "agent_distribution": agent_counts,
+            "subtasks": [
+                {
+                    "subtask_id": s.subtask_id,
+                    "sequence": s.sequence_number,
+                    "description": s.description,
+                    "agent": s.agent,
+                    "estimated_time": s.estimated_time,
+                    "status": s.status,
+                    "duration_seconds": s.duration_seconds,
+                    "error": s.error
+                }
+                for s in subtasks
+            ]
+        }
     
     async def get_experiment_summary(self, experiment_id: UUID) -> Dict[str, Any]:
         """

@@ -181,6 +181,12 @@ class TaskExecution(Base):
         cascade="all, delete-orphan",
         lazy="dynamic"
     )
+    execution_plan = relationship(
+        "ExecutionPlan",
+        back_populates="task_execution",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
     
     __table_args__ = (
         Index('idx_poc_task_exec_experiment_task', 'experiment_id', 'task_id'),
@@ -344,3 +350,186 @@ class Hallucination(Base):
     )
     
     task_execution = relationship("TaskExecution", back_populates="hallucinations")
+
+
+class ExecutionPlan(Base):
+    """
+    Execution plan tracking for complex tasks.
+    
+    Tracks plans created by Orchestrator agent for breaking down complex tasks.
+    """
+    __tablename__ = "poc_execution_plans"
+    
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+        comment="Execution plan UUID"
+    )
+    task_execution_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("poc_task_executions.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+        comment="Reference to parent task execution"
+    )
+    plan_id: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        index=True,
+        comment="Plan identifier from agent-runtime"
+    )
+    original_task: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="Original user task that triggered planning"
+    )
+    subtask_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Total number of subtasks in plan"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        index=True,
+        comment="Plan creation timestamp"
+    )
+    completed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Plan completion timestamp"
+    )
+    is_complete: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        index=True,
+        comment="Whether all subtasks are complete"
+    )
+    plan_metadata: Mapped[Optional[dict]] = mapped_column(
+        JSON,
+        nullable=True,
+        comment="Additional plan metadata"
+    )
+    
+    # Relationships
+    task_execution = relationship("TaskExecution", back_populates="execution_plan")
+    subtasks = relationship(
+        "SubtaskExecution",
+        back_populates="plan",
+        cascade="all, delete-orphan",
+        lazy="dynamic",
+        order_by="SubtaskExecution.sequence_number"
+    )
+    
+    __table_args__ = (
+        Index('idx_poc_plans_task_plan', 'task_execution_id', 'plan_id'),
+        Index('idx_poc_plans_complete', 'is_complete'),
+    )
+    
+    def __repr__(self) -> str:
+        return f"<ExecutionPlan(id='{self.id}', plan_id='{self.plan_id}', subtasks={self.subtask_count})>"
+
+
+class SubtaskExecution(Base):
+    """
+    Individual subtask execution tracking within a plan.
+    
+    Tracks execution of each subtask in an execution plan.
+    """
+    __tablename__ = "poc_subtask_executions"
+    
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+        comment="Subtask execution UUID"
+    )
+    plan_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("poc_execution_plans.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Reference to parent execution plan"
+    )
+    subtask_id: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        index=True,
+        comment="Subtask identifier from agent-runtime"
+    )
+    sequence_number: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        index=True,
+        comment="Order of subtask in plan (0-indexed)"
+    )
+    description: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="Description of what needs to be done"
+    )
+    agent: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        index=True,
+        comment="Agent type assigned to this subtask"
+    )
+    estimated_time: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="Estimated time to complete (e.g., '2 min', '5 min')"
+    )
+    status: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="pending",
+        index=True,
+        comment="Current status: pending, in_progress, completed, failed, skipped"
+    )
+    started_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Subtask start timestamp"
+    )
+    completed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Subtask completion timestamp"
+    )
+    duration_seconds: Mapped[Optional[float]] = mapped_column(
+        Float,
+        nullable=True,
+        comment="Actual execution duration in seconds"
+    )
+    result: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Result or output after completion"
+    )
+    error: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Error message if subtask failed"
+    )
+    dependencies: Mapped[Optional[dict]] = mapped_column(
+        JSON,
+        nullable=True,
+        comment="List of subtask IDs that must complete before this one"
+    )
+    
+    # Relationships
+    plan = relationship("ExecutionPlan", back_populates="subtasks")
+    
+    __table_args__ = (
+        Index('idx_poc_subtasks_plan_seq', 'plan_id', 'sequence_number'),
+        Index('idx_poc_subtasks_status', 'status'),
+        Index('idx_poc_subtasks_agent', 'agent'),
+    )
+    
+    def __repr__(self) -> str:
+        return f"<SubtaskExecution(id='{self.id}', subtask_id='{self.subtask_id}', status='{self.status}')>"
