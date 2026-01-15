@@ -8,7 +8,7 @@
 ![Status](https://img.shields.io/badge/status-MVP-green)
 
 **Версия**: 1.0 (MVP)
-**Дата обновления**: 11 января 2026
+**Дата обновления**: 15 января 2026
 
 ## 🎯 Основные возможности
 
@@ -23,12 +23,13 @@
 ### AI Service (Python)
 - ✅ **Микросервисная архитектура** - 4 сервиса (Gateway, Agent Runtime, LLM Proxy, Auth Service)
 - ✅ **Мультиагентная система** - 5 специализированных агентов (🎭 Orchestrator, 💻 Coder, 🏗️ Architect, 🐛 Debug, 💬 Ask)
+- ✅ **Система планирования** - Автоматическое разбиение сложных задач на подзадачи с последовательным выполнением
 - ✅ **OAuth2 аутентификация** - JWT токены (RS256) с refresh token rotation
 - ✅ **Поддержка множества LLM** - OpenAI, Anthropic, Ollama (локальные модели)
 - ✅ **WebSocket API** - Потоковая передача данных в реальном времени
 - ✅ **HITL (Human-in-the-Loop)** - Контроль опасных операций с database persistence
 - ✅ **Session persistence** - Async database (PostgreSQL/SQLite)
-- ✅ **9 реализованных tools** - Файловые операции, команды, поиск в коде
+- ✅ **10 реализованных tools** - Файловые операции, команды, поиск в коде, планирование
 
 ## 📁 Структура проекта
 
@@ -309,6 +310,9 @@ python app/main.py
 
 ### 🗂️ Техническая документация
 - **[Multi-Agent README](codelab-ai-service/doc/MULTI_AGENT_README.md)** - Мультиагентная система
+- **[Planning System Guide](codelab-ai-service/agent-runtime/PLANNING_SYSTEM_GUIDE.md)** - Система планирования для сложных задач ⭐ NEW
+- **[Planning Implementation Report](codelab-ai-service/agent-runtime/PLANNING_IMPLEMENTATION_REPORT.md)** - Отчет о реализации планирования ⭐ NEW
+- **[Planning Integration Report (IDE)](codelab_ide/PLANNING_INTEGRATION_REPORT.md)** - Интеграция планирования в IDE ⭐ NEW
 - **[HITL Implementation](codelab-ai-service/doc/HITL_IMPLEMENTATION.md)** - Human-in-the-Loop
 - **[Session Persistence Guide](codelab-ai-service/agent-runtime/SESSION_PERSISTENCE_GUIDE.md)** - Персистентность сессий
 - **[Migration Complete](codelab-ai-service/agent-runtime/MIGRATION_COMPLETE.md)** - Async database миграция
