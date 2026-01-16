@@ -34,6 +34,10 @@ benchmark:
   test_project: "./test_project"
   enable_validation: true
   max_iterations: 10  # Максимум итераций tool execution
+  
+  # Plan approval settings (для поддержки нового механизма планирования)
+  # Автоматически подтверждать планы выполнения (рекомендуется для benchmark)
+  plan_auto_approve: true
 
 # Генерация отчетов
 reporting:

@@ -1,40 +1,61 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:test_project/utils/calculator.dart';
+import '../../lib/utils/calculator.dart';
 
 void main() {
-  group('Calculator', () {
-    late Calculator calc;
+  late Calculator calculator;
 
-    setUp(() {
-      calc = Calculator();
+  setUp(() {
+    calculator = Calculator();
+  });
+
+  group('Calculator add', () {
+    test('returns correct sum for positive numbers', () {
+      expect(calculator.add(3, 2), 5);
     });
-
-    test('add returns correct sum', () {
-      expect(calc.add(2, 3), 5);
-      expect(calc.add(-1, 1), 0);
-      expect(calc.add(0, 0), 0);
+    test('returns correct sum with zero', () {
+      expect(calculator.add(5, 0), 5);
     });
-
-    test('subtract returns correct difference', () {
-      expect(calc.subtract(5, 3), 2);
-      expect(calc.subtract(0, 1), -1);
-      expect(calc.subtract(-1, -1), 0);
+    test('returns correct sum for negative numbers', () {
+      expect(calculator.add(-3, -2), -5);
     });
+  });
 
-    test('multiply returns correct product', () {
-      expect(calc.multiply(4, 5), 20);
-      expect(calc.multiply(0, 100), 0);
-      expect(calc.multiply(-2, 3), -6);
+  group('Calculator subtract', () {
+    test('returns correct difference for positive numbers', () {
+      expect(calculator.subtract(5, 3), 2);
     });
-
-    test('divide returns correct quotient', () {
-      expect(calc.divide(10, 2), 5.0);
-      expect(calc.divide(9, 3), 3.0);
-      expect(calc.divide(-6, 2), -3.0);
+    test('returns correct difference with zero', () {
+      expect(calculator.subtract(7, 0), 7);
     });
+    test('returns correct difference for negative numbers', () {
+      expect(calculator.subtract(-5, -2), -3);
+    });
+  });
 
-    test('divide throws ArgumentError on division by zero', () {
-      expect(() => calc.divide(5, 0), throwsArgumentError);
+  group('Calculator multiply', () {
+    test('returns correct product for positive numbers', () {
+      expect(calculator.multiply(4, 3), 12);
+    });
+    test('returns correct product with zero', () {
+      expect(calculator.multiply(5, 0), 0);
+    });
+    test('returns correct product for negative numbers', () {
+      expect(calculator.multiply(-4, 3), -12);
+    });
+  });
+
+  group('Calculator divide', () {
+    test('returns correct quotient for positive numbers', () {
+      expect(calculator.divide(8, 2), 4);
+    });
+    test('returns correct quotient for negative numerator', () {
+      expect(calculator.divide(-8, 2), -4);
+    });
+    test('returns correct quotient for negative denominator', () {
+      expect(calculator.divide(8, -2), -4);
+    });
+    test('throws ArgumentError when dividing by zero', () {
+      expect(() => calculator.divide(5, 0), throwsArgumentError);
     });
   });
 }

@@ -38,7 +38,8 @@ class GatewayClient:
         auth_manager: AuthManager,
         timeout: int = 60,
         reconnect_attempts: int = 3,
-        reconnect_delay: int = 5
+        reconnect_delay: int = 5,
+        plan_auto_approve: bool = True
     ):
         """
         Initialize Gateway client.
@@ -50,6 +51,7 @@ class GatewayClient:
             timeout: Message timeout in seconds
             reconnect_attempts: Number of reconnection attempts
             reconnect_delay: Delay between reconnection attempts
+            plan_auto_approve: Automatically approve execution plans (default: True)
         """
         self.base_url = base_url
         self.ws_url = ws_url
@@ -57,8 +59,10 @@ class GatewayClient:
         self.timeout = timeout
         self.reconnect_attempts = reconnect_attempts
         self.reconnect_delay = reconnect_delay
+        self.plan_auto_approve = plan_auto_approve
         
         logger.info(f"GatewayClient initialized: {base_url}")
+        logger.info(f"Plan auto-approve: {plan_auto_approve}")
     
     async def create_session(self) -> str:
         """
@@ -129,6 +133,7 @@ class GatewayClient:
         # Planning metrics
         plan_id = None
         plan_created = False
+        plan_in_execution = False
         subtasks_started = 0
         subtasks_completed = 0
         
@@ -165,7 +170,8 @@ class GatewayClient:
                             if len(response_text) % 100 == 0:
                                 logger.debug(f"📝 Received {len(response_text)} characters...")
                             
-                            if msg.get("is_final"):
+                            # Only break if final and no plan is being executed
+                            if msg.get("is_final") and not plan_in_execution:
                                 logger.info(f"✅ Received final message ({len(response_text)} chars)")
                                 break
                         
@@ -267,11 +273,14 @@ class GatewayClient:
                             plan_id = metadata.get("plan_id", "unknown")
                             subtask_count = metadata.get("subtask_count", 0)
                             subtasks = metadata.get("subtasks", [])
+                            requires_approval = metadata.get("requires_approval", False)
+                            is_final = msg.get("is_final", False)
                             
                             logger.info("=" * 80)
                             logger.info(f"📋 EXECUTION PLAN CREATED")
                             logger.info(f"   Plan ID: {plan_id}")
                             logger.info(f"   Total Subtasks: {subtask_count}")
+                            logger.info(f"   Requires Approval: {requires_approval}")
                             logger.info("=" * 80)
                             
                             # Log subtasks with details
@@ -299,6 +308,27 @@ class GatewayClient:
                                 )
                             except Exception as e:
                                 logger.error(f"Failed to record plan creation: {e}")
+                            
+                            # Auto-approve plan if required (benchmark mode)
+                            if requires_approval and is_final:
+                                decision = "approve" if self.plan_auto_approve else "reject"
+                                
+                                await websocket.send(json.dumps({
+                                    "type": "plan_decision",
+                                    "plan_id": plan_id,
+                                    "decision": decision
+                                }))
+                                
+                                decision_icon = "✅" if decision == "approve" else "❌"
+                                logger.info("")
+                                logger.info(f"{decision_icon} Auto-{decision}d plan: {plan_id}")
+                                logger.info(f"   (Benchmark mode: plan_auto_approve={self.plan_auto_approve})")
+                                logger.info("")
+                                
+                                # Mark plan as in execution if approved
+                                if decision == "approve":
+                                    plan_in_execution = True
+                                    logger.info("⏳ Waiting for plan execution (subtasks)...")
                         
                         elif msg_type == "subtask_started":
                             # Subtask execution started
@@ -407,6 +437,10 @@ class GatewayClient:
                                 )
                             except Exception as e:
                                 logger.error(f"Failed to record plan completion: {e}")
+                            
+                            # Mark plan execution as complete
+                            plan_in_execution = False
+                            logger.info("✅ Plan execution finished, waiting for final message...")
                         
                         elif msg_type == "error":
                             has_error = True
