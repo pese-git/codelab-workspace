@@ -30,8 +30,8 @@ database:
 
 # Настройки benchmark
 benchmark:
-  tasks_file: "tasks.yaml"
-  test_project: "./test_project"
+  tasks_file: "tasks-samples/tasks.yaml"
+  test_project: "./_test_project"
   enable_validation: true
   max_iterations: 10  # Максимум итераций tool execution
 

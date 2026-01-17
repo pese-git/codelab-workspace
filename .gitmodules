@@ -10,3 +10,6 @@
 [submodule "codelab-chart"]
 	path = codelab-chart
 	url = git@github.com:pese-git/codelab-chart.git
+[submodule "benchmark-standalone/tasks-samples"]
+	path = benchmark-standalone/tasks-samples
+	url = git@github.com:pese-git/codelab-benchmark-data.git
