@@ -80,6 +80,41 @@ class GatewayClient:
             logger.info(f"Created session: {session_id}")
             return session_id
     
+    async def get_session_metrics(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get LLM metrics for a session.
+        
+        Args:
+            session_id: Session ID
+            
+        Returns:
+            Session metrics dictionary or None if not found
+        """
+        try:
+            headers = await self.auth_manager.get_headers()
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v1/events/metrics/session/{session_id}",
+                    headers=headers
+                )
+                
+                if response.status_code == 200:
+                    return response.json()
+                elif response.status_code == 404:
+                    logger.debug(f"No metrics found for session {session_id}")
+                    return None
+                else:
+                    logger.warning(
+                        f"Failed to get metrics for session {session_id}: "
+                        f"status={response.status_code}"
+                    )
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"Error fetching session metrics: {e}")
+            return None
+    
     async def execute_task(
         self,
         task: Dict[str, Any],
@@ -303,6 +338,34 @@ class GatewayClient:
                 
                 if validation['total_checks'] > 0:
                     success = validation['success_rate'] >= 0.5
+            
+            # Fetch LLM metrics from session
+            logger.info("📊 Fetching LLM metrics from session...")
+            session_metrics = await self.get_session_metrics(session_id)
+            
+            if session_metrics and 'requests' in session_metrics:
+                llm_requests = session_metrics['requests']
+                logger.info(
+                    f"📈 LLM Metrics: {len(llm_requests)} requests, "
+                    f"{session_metrics.get('total_tokens', 0)} tokens, "
+                    f"{session_metrics.get('total_duration_ms', 0)}ms total"
+                )
+                
+                # Record each LLM call
+                for req in llm_requests:
+                    if req.get('success', False):
+                        await collector.record_llm_call(
+                            task_execution_id=task_execution_id,
+                            agent_type="agent",  # Could extract from context if needed
+                            input_tokens=req.get('prompt_tokens', 0),
+                            output_tokens=req.get('completion_tokens', 0),
+                            model=req.get('model', 'unknown'),
+                            duration_seconds=req.get('duration_ms', 0) / 1000.0
+                        )
+                
+                logger.info(f"✅ Recorded {len(llm_requests)} LLM calls to database")
+            else:
+                logger.warning("⚠️ No LLM metrics found for session")
             
             result_icon = "✅" if success else "❌"
             logger.info(
