@@ -13,9 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import (
     AgentSwitch,
+    ExecutionPlan,
     Experiment,
     Hallucination,
     LLMCall,
+    SubtaskExecution,
     TaskExecution,
     ToolCall,
 )
@@ -95,6 +97,14 @@ class ReportGenerator:
             "estimated_cost_usd": 0,
             "tasks_by_category": {},
             "tasks_by_type": {},
+            # Planning metrics
+            "total_plans": 0,
+            "tasks_with_plans": 0,
+            "total_subtasks": 0,
+            "completed_subtasks": 0,
+            "failed_subtasks": 0,
+            "avg_subtasks_per_plan": 0,
+            "planning_success_rate": 0,
         }
         
         # Collect detailed metrics
@@ -144,6 +154,32 @@ class ReportGenerator:
             )
             hallucinations = list(result.scalars().all())
             stats["total_hallucinations"] += len(hallucinations)
+            
+            # Execution plans
+            result = await self.db.execute(
+                select(ExecutionPlan).where(ExecutionPlan.task_execution_id == task.id)
+            )
+            plan = result.scalar_one_or_none()
+            
+            if plan:
+                stats["total_plans"] += 1
+                stats["tasks_with_plans"] += 1
+                stats["total_subtasks"] += plan.subtask_count
+                
+                # Get subtask details
+                result = await self.db.execute(
+                    select(SubtaskExecution).where(SubtaskExecution.plan_id == plan.id)
+                )
+                subtasks = list(result.scalars().all())
+                
+                stats["completed_subtasks"] += sum(1 for s in subtasks if s.status == 'completed')
+                stats["failed_subtasks"] += sum(1 for s in subtasks if s.status == 'failed')
+        
+        # Calculate planning averages
+        if stats["total_plans"] > 0:
+            stats["avg_subtasks_per_plan"] = stats["total_subtasks"] / stats["total_plans"]
+            if stats["total_subtasks"] > 0:
+                stats["planning_success_rate"] = stats["completed_subtasks"] / stats["total_subtasks"]
         
         # Calculate cost (GPT-4 pricing)
         input_cost_per_1k = 0.03
@@ -248,6 +284,21 @@ class ReportGenerator:
         lines.append(f"| Total Hallucinations | {stats['total_hallucinations']} |")
         lines.append("")
         
+        # Planning metrics (if any plans were used)
+        if stats.get("total_plans", 0) > 0:
+            lines.append("### Planning Metrics")
+            lines.append("")
+            lines.append("| Metric | Value |")
+            lines.append("|--------|-------|")
+            lines.append(f"| Tasks with Plans | {stats['tasks_with_plans']} / {stats['total_tasks']} |")
+            lines.append(f"| Total Plans Created | {stats['total_plans']} |")
+            lines.append(f"| Total Subtasks | {stats['total_subtasks']} |")
+            lines.append(f"| Completed Subtasks | {stats['completed_subtasks']} |")
+            lines.append(f"| Failed Subtasks | {stats['failed_subtasks']} |")
+            lines.append(f"| Avg Subtasks per Plan | {stats['avg_subtasks_per_plan']:.1f} |")
+            lines.append(f"| Planning Success Rate | {stats['planning_success_rate']:.2%} |")
+            lines.append("")
+        
         lines.append("### Token Usage")
         lines.append("")
         lines.append("| Metric | Value |")
@@ -303,6 +354,35 @@ class ReportGenerator:
         diff_cost = ma_cost - sa_cost
         lines.append(f"| Estimated Cost | ${sa_cost:.4f} | ${ma_cost:.4f} | ${diff_cost:+.4f} |")
         lines.append("")
+        
+        # Planning comparison (if both have planning data)
+        if (single_agent_stats.get("total_plans", 0) > 0 or
+            multi_agent_stats.get("total_plans", 0) > 0):
+            lines.append("### Planning Metrics")
+            lines.append("")
+            lines.append("| Metric | Single-Agent | Multi-Agent | Difference |")
+            lines.append("|--------|--------------|-------------|------------|")
+            
+            sa_plans = single_agent_stats.get("total_plans", 0)
+            ma_plans = multi_agent_stats.get("total_plans", 0)
+            diff_plans = ma_plans - sa_plans
+            lines.append(f"| Total Plans | {sa_plans} | {ma_plans} | {diff_plans:+d} |")
+            
+            sa_subtasks = single_agent_stats.get("total_subtasks", 0)
+            ma_subtasks = multi_agent_stats.get("total_subtasks", 0)
+            diff_subtasks = ma_subtasks - sa_subtasks
+            lines.append(f"| Total Subtasks | {sa_subtasks} | {ma_subtasks} | {diff_subtasks:+d} |")
+            
+            sa_plan_success = single_agent_stats.get("planning_success_rate", 0)
+            ma_plan_success = multi_agent_stats.get("planning_success_rate", 0)
+            diff_plan_success = (ma_plan_success - sa_plan_success) * 100
+            lines.append(f"| Planning Success Rate | {sa_plan_success:.2%} | {ma_plan_success:.2%} | {diff_plan_success:+.1f}% |")
+            
+            sa_avg_subtasks = single_agent_stats.get("avg_subtasks_per_plan", 0)
+            ma_avg_subtasks = multi_agent_stats.get("avg_subtasks_per_plan", 0)
+            diff_avg_subtasks = ma_avg_subtasks - sa_avg_subtasks
+            lines.append(f"| Avg Subtasks per Plan | {sa_avg_subtasks:.1f} | {ma_avg_subtasks:.1f} | {diff_avg_subtasks:+.1f} |")
+            lines.append("")
         
         return lines
     

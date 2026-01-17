@@ -38,7 +38,8 @@ class GatewayClient:
         auth_manager: AuthManager,
         timeout: int = 60,
         reconnect_attempts: int = 3,
-        reconnect_delay: int = 5
+        reconnect_delay: int = 5,
+        plan_auto_approve: bool = True
     ):
         """
         Initialize Gateway client.
@@ -50,6 +51,7 @@ class GatewayClient:
             timeout: Message timeout in seconds
             reconnect_attempts: Number of reconnection attempts
             reconnect_delay: Delay between reconnection attempts
+            plan_auto_approve: Automatically approve execution plans (default: True)
         """
         self.base_url = base_url
         self.ws_url = ws_url
@@ -57,8 +59,10 @@ class GatewayClient:
         self.timeout = timeout
         self.reconnect_attempts = reconnect_attempts
         self.reconnect_delay = reconnect_delay
+        self.plan_auto_approve = plan_auto_approve
         
         logger.info(f"GatewayClient initialized: {base_url}")
+        logger.info(f"Plan auto-approve: {plan_auto_approve}")
     
     async def create_session(self) -> str:
         """
@@ -126,6 +130,13 @@ class GatewayClient:
         last_write_file_time = None
         MAX_TOOL_CALLS = 100  # Prevent infinite loops
         
+        # Planning metrics
+        plan_id = None
+        plan_created = False
+        plan_in_execution = False
+        subtasks_started = 0
+        subtasks_completed = 0
+        
         try:
             # Connect to WebSocket with session_id
             ws_endpoint = f"{self.ws_url}/{session_id}"
@@ -159,7 +170,8 @@ class GatewayClient:
                             if len(response_text) % 100 == 0:
                                 logger.debug(f"📝 Received {len(response_text)} characters...")
                             
-                            if msg.get("is_final"):
+                            # Only break if final and no plan is being executed
+                            if msg.get("is_final") and not plan_in_execution:
                                 logger.info(f"✅ Received final message ({len(response_text)} chars)")
                                 break
                         
@@ -254,10 +266,186 @@ class GatewayClient:
                             else:
                                 logger.warning(f"Skipping agent_switch with to_agent=None")
                         
+                        elif msg_type == "plan_notification":
+                            # Plan created by Orchestrator
+                            plan_created = True
+                            metadata = msg.get("metadata", {})
+                            plan_id = metadata.get("plan_id", "unknown")
+                            subtask_count = metadata.get("subtask_count", 0)
+                            subtasks = metadata.get("subtasks", [])
+                            requires_approval = metadata.get("requires_approval", False)
+                            is_final = msg.get("is_final", False)
+                            
+                            logger.info("=" * 80)
+                            logger.info(f"📋 EXECUTION PLAN CREATED")
+                            logger.info(f"   Plan ID: {plan_id}")
+                            logger.info(f"   Total Subtasks: {subtask_count}")
+                            logger.info(f"   Requires Approval: {requires_approval}")
+                            logger.info("=" * 80)
+                            
+                            # Log subtasks with details
+                            for idx, subtask in enumerate(subtasks, 1):
+                                subtask_id = subtask.get('id', f'subtask_{idx}')
+                                description = subtask.get('description', 'No description')
+                                agent = subtask.get('agent', 'unknown')
+                                estimated_time = subtask.get('estimated_time', 'N/A')
+                                dependencies = subtask.get('dependencies', [])
+                                
+                                logger.info(f"   {idx}. [{subtask_id}] {description}")
+                                logger.info(f"      Agent: {agent} | Est. Time: {estimated_time}")
+                                if dependencies:
+                                    logger.info(f"      Dependencies: {', '.join(dependencies)}")
+                            
+                            logger.info("=" * 80)
+                            
+                            # Record plan creation
+                            try:
+                                await collector.record_plan_created(
+                                    task_execution_id=task_execution_id,
+                                    plan_id=plan_id,
+                                    original_task=task_description,
+                                    subtasks=subtasks
+                                )
+                            except Exception as e:
+                                logger.error(f"Failed to record plan creation: {e}")
+                            
+                            # Auto-approve plan if required (benchmark mode)
+                            if requires_approval and is_final:
+                                decision = "approve" if self.plan_auto_approve else "reject"
+                                
+                                await websocket.send(json.dumps({
+                                    "type": "plan_decision",
+                                    "plan_id": plan_id,
+                                    "decision": decision
+                                }))
+                                
+                                decision_icon = "✅" if decision == "approve" else "❌"
+                                logger.info("")
+                                logger.info(f"{decision_icon} Auto-{decision}d plan: {plan_id}")
+                                logger.info(f"   (Benchmark mode: plan_auto_approve={self.plan_auto_approve})")
+                                logger.info("")
+                                
+                                # Mark plan as in execution if approved
+                                if decision == "approve":
+                                    plan_in_execution = True
+                                    logger.info("⏳ Waiting for plan execution (subtasks)...")
+                        
+                        elif msg_type == "subtask_started":
+                            # Subtask execution started
+                            subtasks_started += 1
+                            metadata = msg.get("metadata", {})
+                            subtask_id = metadata.get("subtask_id", "unknown")
+                            subtask_description = metadata.get("description", "")
+                            subtask_agent = metadata.get("agent", "unknown")
+                            subtask_index = metadata.get("index", subtasks_started)
+                            total_subtasks = metadata.get("total", "?")
+                            
+                            logger.info("")
+                            logger.info("▶" * 40)
+                            logger.info(f"▶️  SUBTASK STARTED [{subtask_index}/{total_subtasks}]")
+                            logger.info(f"   ID: {subtask_id}")
+                            logger.info(f"   Agent: {subtask_agent}")
+                            logger.info(f"   Description: {subtask_description}")
+                            logger.info("▶" * 40)
+                            
+                            # Record subtask start
+                            try:
+                                await collector.record_subtask_started(
+                                    task_execution_id=task_execution_id,
+                                    subtask_id=subtask_id,
+                                    description=subtask_description,
+                                    agent=subtask_agent
+                                )
+                            except Exception as e:
+                                logger.error(f"Failed to record subtask start: {e}")
+                        
+                        elif msg_type == "subtask_completed":
+                            # Subtask execution completed
+                            subtasks_completed += 1
+                            metadata = msg.get("metadata", {})
+                            subtask_id = metadata.get("subtask_id", "unknown")
+                            subtask_status = metadata.get("status", "unknown")
+                            subtask_result = metadata.get("result")
+                            subtask_error = metadata.get("error")
+                            subtask_index = metadata.get("index", subtasks_completed)
+                            total_subtasks = metadata.get("total", "?")
+                            
+                            # Choose icon based on status
+                            if subtask_status == "completed":
+                                status_icon = "✅"
+                                status_color = "SUCCESS"
+                            elif subtask_status == "failed":
+                                status_icon = "❌"
+                                status_color = "FAILED"
+                            elif subtask_status == "skipped":
+                                status_icon = "⏭️"
+                                status_color = "SKIPPED"
+                            else:
+                                status_icon = "❓"
+                                status_color = "UNKNOWN"
+                            
+                            logger.info("")
+                            logger.info("◀" * 40)
+                            logger.info(f"{status_icon} SUBTASK {status_color} [{subtask_index}/{total_subtasks}]")
+                            logger.info(f"   ID: {subtask_id}")
+                            logger.info(f"   Status: {subtask_status}")
+                            if subtask_result:
+                                result_preview = subtask_result[:100]
+                                logger.info(f"   Result: {result_preview}{'...' if len(subtask_result) > 100 else ''}")
+                            if subtask_error:
+                                logger.error(f"   Error: {subtask_error}")
+                            logger.info("◀" * 40)
+                            
+                            # Record subtask completion
+                            try:
+                                await collector.record_subtask_completed(
+                                    task_execution_id=task_execution_id,
+                                    subtask_id=subtask_id,
+                                    status=subtask_status,
+                                    result=subtask_result,
+                                    error=subtask_error
+                                )
+                            except Exception as e:
+                                logger.error(f"Failed to record subtask completion: {e}")
+                        
+                        elif msg_type == "plan_completed":
+                            # Entire plan completed
+                            metadata = msg.get("metadata", {})
+                            completed_plan_id = metadata.get("plan_id", plan_id)
+                            total_subtasks = metadata.get("total_subtasks", 0)
+                            completed_count = metadata.get("completed", 0)
+                            failed_count = metadata.get("failed", 0)
+                            skipped_count = metadata.get("skipped", 0)
+                            
+                            logger.info("")
+                            logger.info("🏁" * 40)
+                            logger.info(f"🏁 EXECUTION PLAN COMPLETED")
+                            logger.info(f"   Plan ID: {completed_plan_id}")
+                            logger.info(f"   Total Subtasks: {total_subtasks}")
+                            logger.info(f"   ✅ Completed: {completed_count}")
+                            logger.info(f"   ❌ Failed: {failed_count}")
+                            logger.info(f"   ⏭️  Skipped: {skipped_count}")
+                            success_rate = (completed_count / total_subtasks * 100) if total_subtasks > 0 else 0
+                            logger.info(f"   Success Rate: {success_rate:.1f}%")
+                            logger.info("🏁" * 40)
+                            logger.info("")
+                            
+                            # Record plan completion
+                            try:
+                                await collector.record_plan_completed(
+                                    task_execution_id=task_execution_id
+                                )
+                            except Exception as e:
+                                logger.error(f"Failed to record plan completion: {e}")
+                            
+                            # Mark plan execution as complete
+                            plan_in_execution = False
+                            logger.info("✅ Plan execution finished, waiting for final message...")
+                        
                         elif msg_type == "error":
                             has_error = True
                             error_msg = msg.get("content", msg.get("error", "Unknown error"))
-                            logger.error(f"Error from Gateway: {error_msg}")
+                            logger.error(f"❌ Error from Gateway: {error_msg}")
                             break
                     
                     except asyncio.TimeoutError:
@@ -304,14 +492,28 @@ class GatewayClient:
                 if validation['total_checks'] > 0:
                     success = validation['success_rate'] >= 0.5
             
+            # Log final summary
             result_icon = "✅" if success else "❌"
-            logger.info(
-                f"\n{result_icon} Task {task_id} completed: "
-                f"success={success}, "
-                f"tool_calls={tool_calls_count}, "
-                f"agent_switches={agent_switches_count}, "
-                f"response_length={len(response_text)}"
-            )
+            logger.info("")
+            logger.info("=" * 80)
+            logger.info(f"{result_icon} TASK EXECUTION SUMMARY")
+            logger.info(f"   Task ID: {task_id}")
+            logger.info(f"   Title: {task_title}")
+            logger.info(f"   Category: {task_category}")
+            logger.info(f"   Success: {success}")
+            logger.info(f"   Tool Calls: {tool_calls_count}")
+            logger.info(f"   Agent Switches: {agent_switches_count}")
+            logger.info(f"   Response Length: {len(response_text)} chars")
+            
+            if plan_created:
+                logger.info(f"   📋 Plan Used: Yes (ID: {plan_id})")
+                logger.info(f"   Subtasks Started: {subtasks_started}")
+                logger.info(f"   Subtasks Completed: {subtasks_completed}")
+            else:
+                logger.info(f"   📋 Plan Used: No")
+            
+            logger.info("=" * 80)
+            logger.info("")
             
             return success
             

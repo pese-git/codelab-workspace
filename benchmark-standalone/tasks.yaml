@@ -782,24 +782,70 @@ tasks:
     estimated_time: "20 минут"
     complexity_score: 6
 
+  - id: task_041
+    category: complex
+    type: mixed
+    title: "Разработка TODO приложения с Clean Architecture"
+    description: "Необходимо разработать TODO приложение на Flutter. Использовать Clean Architecture и лучшие практики в разработке. Приложение должно включать: слои domain/data/presentation, управление состоянием (BLoC или Riverpod), локальное хранилище (Hive или SQLite), CRUD операции для задач, фильтрацию и сортировку, unit и widget тесты."
+    expected_agent: "Architect + Coder"
+    expected_files:
+      - "lib/features/todo/domain/entities/todo.dart"
+      - "lib/features/todo/domain/repositories/todo_repository.dart"
+      - "lib/features/todo/domain/usecases/add_todo.dart"
+      - "lib/features/todo/data/repositories/todo_repository_impl.dart"
+      - "lib/features/todo/data/datasources/todo_local_datasource.dart"
+      - "lib/features/todo/data/models/todo_model.dart"
+      - "lib/features/todo/presentation/bloc/todo_bloc.dart"
+      - "lib/features/todo/presentation/pages/todo_list_page.dart"
+      - "lib/features/todo/presentation/widgets/todo_item.dart"
+      - "test/features/todo/domain/usecases/add_todo_test.dart"
+      - "docs/architecture/todo_app_design.md"
+    success_criteria:
+      - "Clean Architecture структура реализована"
+      - "Все слои (domain/data/presentation) созданы"
+      - "State management интегрирован"
+      - "Локальное хранилище работает"
+      - "CRUD операции реализованы"
+      - "Тесты написаны и проходят"
+      - "Документация создана"
+    auto_check:
+      - type: "file_exists"
+        params:
+          path: "lib/features/todo/domain/entities/todo.dart"
+      - type: "file_exists"
+        params:
+          path: "lib/features/todo/presentation/bloc/todo_bloc.dart"
+      - type: "file_exists"
+        params:
+          path: "docs/architecture/todo_app_design.md"
+      - type: "test_passes"
+        params:
+          pattern: "todo/*_test.dart"
+    estimated_time: "60 минут"
+    complexity_score: 10
+
 # Метаданные
 metadata:
-  version: "2.0"
+  version: "2.1"
   created_at: "2026-01-12"
-  total_tasks: 40
+  updated_at: "2026-01-16"
+  total_tasks: 41
   categories:
     simple: 10
     medium: 15
-    complex: 10
+    complex: 11
     specialized: 5
   types:
     coding: 16
     architecture: 8
     debug: 8
     question: 4
-    mixed: 4
-  description: "Полный набор из 40 задач для POC эксперимента с multi-agent системой"
+    mixed: 5
+  description: "Полный набор из 41 задачи для POC эксперимента с multi-agent системой"
   notes: |
-    Этот файл содержит полный benchmark из 40 задач для тестирования multi-agent POC.
-    Распределение: 10 простых, 15 средних, 10 сложных, 5 специализированных.
-    Типы: 16 coding, 8 architecture, 8 debug, 4 question, 4 mixed.
+    Этот файл содержит полный benchmark из 41 задачи для тестирования multi-agent POC.
+    Распределение: 10 простых, 15 средних, 11 сложных, 5 специализированных.
+    Типы: 16 coding, 8 architecture, 8 debug, 4 question, 5 mixed.
+    
+    task_041 добавлена 2026-01-16: Комплексная задача на разработку TODO приложения
+    с Clean Architecture, требующая координации Architect и Coder агентов.

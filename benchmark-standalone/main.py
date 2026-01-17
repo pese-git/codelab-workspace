@@ -60,6 +60,9 @@ class BenchmarkRunner:
         # Initialize auth manager
         auth_manager = AuthManager(config['gateway'])
         
+        # Get plan approval settings
+        plan_auto_approve = config.get('benchmark', {}).get('plan_auto_approve', True)
+        
         # Initialize components
         self.client = GatewayClient(
             base_url=config['gateway']['base_url'],
@@ -67,7 +70,8 @@ class BenchmarkRunner:
             auth_manager=auth_manager,
             timeout=config['gateway']['timeout'],
             reconnect_attempts=config['gateway']['reconnect_attempts'],
-            reconnect_delay=config['gateway']['reconnect_delay']
+            reconnect_delay=config['gateway']['reconnect_delay'],
+            plan_auto_approve=plan_auto_approve
         )
         
         project_path = Path(config['benchmark']['test_project'])

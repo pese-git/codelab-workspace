@@ -3,38 +3,33 @@ import 'package:test_project/utils/calculator.dart';
 
 void main() {
   group('Calculator', () {
-    late Calculator calc;
+    final calculator = Calculator();
 
-    setUp(() {
-      calc = Calculator();
+    test('add returns the sum of two numbers', () {
+      expect(calculator.add(2, 3), 5);
+      expect(calculator.add(-2, 3), 1);
+      expect(calculator.add(0, 0), 0);
     });
 
-    test('add returns correct sum', () {
-      expect(calc.add(2, 3), 5);
-      expect(calc.add(-1, 1), 0);
-      expect(calc.add(0, 0), 0);
+    test('subtract returns the difference between two numbers', () {
+      expect(calculator.subtract(5, 2), 3);
+      expect(calculator.subtract(2, 5), -3);
+      expect(calculator.subtract(0, 0), 0);
     });
 
-    test('subtract returns correct difference', () {
-      expect(calc.subtract(5, 3), 2);
-      expect(calc.subtract(0, 1), -1);
-      expect(calc.subtract(-1, -1), 0);
+    test('multiply returns the product of two numbers', () {
+      expect(calculator.multiply(2, 3), 6);
+      expect(calculator.multiply(-2, 3), -6);
+      expect(calculator.multiply(0, 10), 0);
     });
 
-    test('multiply returns correct product', () {
-      expect(calc.multiply(4, 5), 20);
-      expect(calc.multiply(0, 100), 0);
-      expect(calc.multiply(-2, 3), -6);
+    test('divide returns the quotient of two numbers as double', () {
+      expect(calculator.divide(6, 3), 2.0);
+      expect(calculator.divide(7, 2), 3.5);
     });
 
-    test('divide returns correct quotient', () {
-      expect(calc.divide(10, 2), 5.0);
-      expect(calc.divide(9, 3), 3.0);
-      expect(calc.divide(-6, 2), -3.0);
-    });
-
-    test('divide throws ArgumentError on division by zero', () {
-      expect(() => calc.divide(5, 0), throwsArgumentError);
+    test('divide throws ArgumentError when dividing by zero', () {
+      expect(() => calculator.divide(3, 0), throwsA(isA<ArgumentError>()));
     });
   });
 }
