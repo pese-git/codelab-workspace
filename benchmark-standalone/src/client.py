@@ -60,6 +60,54 @@ class GatewayClient:
         
         logger.info(f"GatewayClient initialized: {base_url}")
     
+    async def _make_http_request(
+        self,
+        method: str,
+        url: str,
+        retry_on_401: bool = True,
+        **kwargs
+    ) -> httpx.Response:
+        """
+        Make HTTP request with automatic token refresh on 401.
+        
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            url: Request URL
+            retry_on_401: Whether to retry with refreshed token on 401
+            **kwargs: Additional arguments for httpx request
+            
+        Returns:
+            HTTP response
+            
+        Raises:
+            httpx.HTTPStatusError: If request fails after retry
+        """
+        headers = await self.auth_manager.get_headers()
+        if 'headers' in kwargs:
+            kwargs['headers'].update(headers)
+        else:
+            kwargs['headers'] = headers
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.request(method, url, **kwargs)
+            
+            # Handle 401 Unauthorized
+            if response.status_code == 401 and retry_on_401:
+                logger.warning(f"⚠️ Received 401 from {url}, refreshing token and retrying...")
+                await self.auth_manager.handle_unauthorized()
+                
+                # Retry with new token
+                headers = await self.auth_manager.get_headers()
+                if 'headers' in kwargs:
+                    kwargs['headers'].update(headers)
+                else:
+                    kwargs['headers'] = headers
+                
+                response = await client.request(method, url, **kwargs)
+            
+            response.raise_for_status()
+            return response
+    
     async def create_session(self) -> str:
         """
         Create new session via HTTP API.
@@ -67,18 +115,45 @@ class GatewayClient:
         Returns:
             Session ID
         """
-        headers = await self.auth_manager.get_headers()
+        response = await self._make_http_request(
+            "POST",
+            f"{self.base_url}/api/v1/sessions"
+        )
+        data = response.json()
+        session_id = data['session_id']
+        logger.info(f"Created session: {session_id}")
+        return session_id
+    
+    async def get_session_metrics(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get LLM metrics for a session.
         
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.base_url}/api/v1/sessions",
-                headers=headers
+        Args:
+            session_id: Session ID
+            
+        Returns:
+            Session metrics dictionary or None if not found
+        """
+        try:
+            response = await self._make_http_request(
+                "GET",
+                f"{self.base_url}/api/v1/events/metrics/session/{session_id}"
             )
-            response.raise_for_status()
-            data = response.json()
-            session_id = data['session_id']
-            logger.info(f"Created session: {session_id}")
-            return session_id
+            return response.json()
+                    
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                logger.debug(f"No metrics found for session {session_id}")
+                return None
+            else:
+                logger.warning(
+                    f"Failed to get metrics for session {session_id}: "
+                    f"status={e.response.status_code}"
+                )
+                return None
+        except Exception as e:
+            logger.error(f"Error fetching session metrics: {e}")
+            return None
     
     async def execute_task(
         self,
@@ -304,6 +379,34 @@ class GatewayClient:
                 if validation['total_checks'] > 0:
                     success = validation['success_rate'] >= 0.5
             
+            # Fetch LLM metrics from session
+            logger.info("📊 Fetching LLM metrics from session...")
+            session_metrics = await self.get_session_metrics(session_id)
+            
+            if session_metrics and 'requests' in session_metrics:
+                llm_requests = session_metrics['requests']
+                logger.info(
+                    f"📈 LLM Metrics: {len(llm_requests)} requests, "
+                    f"{session_metrics.get('total_tokens', 0)} tokens, "
+                    f"{session_metrics.get('total_duration_ms', 0)}ms total"
+                )
+                
+                # Record each LLM call
+                for req in llm_requests:
+                    if req.get('success', False):
+                        await collector.record_llm_call(
+                            task_execution_id=task_execution_id,
+                            agent_type="agent",  # Could extract from context if needed
+                            input_tokens=req.get('prompt_tokens', 0),
+                            output_tokens=req.get('completion_tokens', 0),
+                            model=req.get('model', 'unknown'),
+                            duration_seconds=req.get('duration_ms', 0) / 1000.0
+                        )
+                
+                logger.info(f"✅ Recorded {len(llm_requests)} LLM calls to database")
+            else:
+                logger.warning("⚠️ No LLM metrics found for session")
+            
             result_icon = "✅" if success else "❌"
             logger.info(
                 f"\n{result_icon} Task {task_id} completed: "
@@ -333,7 +436,7 @@ class GatewayClient:
             True if connection successful
         """
         try:
-            # Test HTTP endpoint
+            # Test HTTP endpoint (health check doesn't require auth usually)
             async with httpx.AsyncClient() as client:
                 # Try /api/v1/health first (nginx), fallback to /health (direct)
                 try:
@@ -345,7 +448,7 @@ class GatewayClient:
                     response.raise_for_status()
                     logger.info(f"✓ Gateway HTTP accessible: {self.base_url}/health")
             
-            # Test WebSocket by creating session and connecting
+            # Test WebSocket by creating session and connecting (uses auth with retry)
             session_id = await self.create_session()
             ws_endpoint = f"{self.ws_url}/{session_id}"
             
