@@ -32,6 +32,7 @@ class AuthManager:
         self.api_key = config.get('api_key')
         self.jwt_config = config.get('jwt', {})
         self.access_token: Optional[str] = None
+        self.refresh_token: Optional[str] = None
         
         logger.info(f"AuthManager initialized: auth_type={self.auth_type}")
     
@@ -91,19 +92,94 @@ class AuthManager:
             
             token_data = response.json()
             self.access_token = token_data['access_token']
+            self.refresh_token = token_data.get('refresh_token')
             
             logger.info(f"✅ JWT token obtained successfully")
             logger.debug(f"Token type: {token_data.get('token_type')}")
             logger.debug(f"Expires in: {token_data.get('expires_in')}s")
+            if self.refresh_token:
+                logger.debug(f"Refresh token available")
             
             return self.access_token
+    
+    async def refresh_access_token(self) -> str:
+        """
+        Refresh JWT access token using refresh_token.
+        
+        Returns:
+            New access token
+            
+        Raises:
+            ValueError: If refresh_token is not available or refresh fails
+        """
+        if not self.refresh_token:
+            logger.warning("No refresh_token available, re-authenticating...")
+            return await self.authenticate_jwt()
+        
+        auth_url = self.jwt_config.get('auth_url')
+        client_id = self.jwt_config.get('client_id')
+        client_secret = self.jwt_config.get('client_secret', '')
+        
+        if not all([auth_url, client_id]):
+            raise ValueError("Missing JWT configuration (auth_url, client_id)")
+        
+        logger.info("🔄 Refreshing access token using refresh_token...")
+        
+        # OAuth2 refresh token grant
+        data = {
+            "grant_type": "refresh_token",
+            "refresh_token": self.refresh_token,
+            "client_id": client_id,
+        }
+        
+        if client_secret:
+            data["client_secret"] = client_secret
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    auth_url,
+                    data=data,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"}
+                )
+                response.raise_for_status()
+                
+                token_data = response.json()
+                self.access_token = token_data['access_token']
+                # Update refresh_token if a new one is provided
+                if 'refresh_token' in token_data:
+                    self.refresh_token = token_data['refresh_token']
+                
+                logger.info(f"✅ Access token refreshed successfully")
+                logger.debug(f"Expires in: {token_data.get('expires_in')}s")
+                
+                return self.access_token
+                
+        except httpx.HTTPStatusError as e:
+            logger.warning(f"Failed to refresh token (status {e.response.status_code}), re-authenticating...")
+            # If refresh fails, try full re-authentication
+            return await self.authenticate_jwt()
+        except Exception as e:
+            logger.error(f"Error refreshing token: {e}, re-authenticating...")
+            return await self.authenticate_jwt()
     
     async def refresh_token_if_needed(self) -> None:
         """
         Refresh JWT token if needed.
         
-        For now, just re-authenticate. In production, should use refresh_token.
+        Uses refresh_token if available, otherwise re-authenticates.
         """
         if self.auth_type == "jwt":
-            logger.info("🔄 Refreshing JWT token...")
-            await self.authenticate_jwt()
+            await self.refresh_access_token()
+    
+    async def handle_unauthorized(self) -> None:
+        """
+        Handle 401 Unauthorized error by refreshing the token.
+        
+        This method should be called when a request returns 401.
+        """
+        if self.auth_type == "jwt":
+            logger.warning("⚠️ Received 401 Unauthorized, refreshing token...")
+            await self.refresh_access_token()
+        else:
+            logger.error("Received 401 with internal auth - check API key")

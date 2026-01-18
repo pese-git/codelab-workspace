@@ -60,6 +60,54 @@ class GatewayClient:
         
         logger.info(f"GatewayClient initialized: {base_url}")
     
+    async def _make_http_request(
+        self,
+        method: str,
+        url: str,
+        retry_on_401: bool = True,
+        **kwargs
+    ) -> httpx.Response:
+        """
+        Make HTTP request with automatic token refresh on 401.
+        
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            url: Request URL
+            retry_on_401: Whether to retry with refreshed token on 401
+            **kwargs: Additional arguments for httpx request
+            
+        Returns:
+            HTTP response
+            
+        Raises:
+            httpx.HTTPStatusError: If request fails after retry
+        """
+        headers = await self.auth_manager.get_headers()
+        if 'headers' in kwargs:
+            kwargs['headers'].update(headers)
+        else:
+            kwargs['headers'] = headers
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.request(method, url, **kwargs)
+            
+            # Handle 401 Unauthorized
+            if response.status_code == 401 and retry_on_401:
+                logger.warning(f"⚠️ Received 401 from {url}, refreshing token and retrying...")
+                await self.auth_manager.handle_unauthorized()
+                
+                # Retry with new token
+                headers = await self.auth_manager.get_headers()
+                if 'headers' in kwargs:
+                    kwargs['headers'].update(headers)
+                else:
+                    kwargs['headers'] = headers
+                
+                response = await client.request(method, url, **kwargs)
+            
+            response.raise_for_status()
+            return response
+    
     async def create_session(self) -> str:
         """
         Create new session via HTTP API.
@@ -67,18 +115,14 @@ class GatewayClient:
         Returns:
             Session ID
         """
-        headers = await self.auth_manager.get_headers()
-        
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.base_url}/api/v1/sessions",
-                headers=headers
-            )
-            response.raise_for_status()
-            data = response.json()
-            session_id = data['session_id']
-            logger.info(f"Created session: {session_id}")
-            return session_id
+        response = await self._make_http_request(
+            "POST",
+            f"{self.base_url}/api/v1/sessions"
+        )
+        data = response.json()
+        session_id = data['session_id']
+        logger.info(f"Created session: {session_id}")
+        return session_id
     
     async def get_session_metrics(self, session_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -91,26 +135,22 @@ class GatewayClient:
             Session metrics dictionary or None if not found
         """
         try:
-            headers = await self.auth_manager.get_headers()
-            
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{self.base_url}/api/v1/events/metrics/session/{session_id}",
-                    headers=headers
-                )
-                
-                if response.status_code == 200:
-                    return response.json()
-                elif response.status_code == 404:
-                    logger.debug(f"No metrics found for session {session_id}")
-                    return None
-                else:
-                    logger.warning(
-                        f"Failed to get metrics for session {session_id}: "
-                        f"status={response.status_code}"
-                    )
-                    return None
+            response = await self._make_http_request(
+                "GET",
+                f"{self.base_url}/api/v1/events/metrics/session/{session_id}"
+            )
+            return response.json()
                     
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                logger.debug(f"No metrics found for session {session_id}")
+                return None
+            else:
+                logger.warning(
+                    f"Failed to get metrics for session {session_id}: "
+                    f"status={e.response.status_code}"
+                )
+                return None
         except Exception as e:
             logger.error(f"Error fetching session metrics: {e}")
             return None
@@ -396,7 +436,7 @@ class GatewayClient:
             True if connection successful
         """
         try:
-            # Test HTTP endpoint
+            # Test HTTP endpoint (health check doesn't require auth usually)
             async with httpx.AsyncClient() as client:
                 # Try /api/v1/health first (nginx), fallback to /health (direct)
                 try:
@@ -408,7 +448,7 @@ class GatewayClient:
                     response.raise_for_status()
                     logger.info(f"✓ Gateway HTTP accessible: {self.base_url}/health")
             
-            # Test WebSocket by creating session and connecting
+            # Test WebSocket by creating session and connecting (uses auth with retry)
             session_id = await self.create_session()
             ws_endpoint = f"{self.ws_url}/{session_id}"
             
