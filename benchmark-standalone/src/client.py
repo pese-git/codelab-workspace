@@ -120,7 +120,7 @@ class GatewayClient:
             f"{self.base_url}/api/v1/sessions"
         )
         data = response.json()
-        session_id = data['session_id']
+        session_id = data['id']
         logger.info(f"Created session: {session_id}")
         return session_id
     
