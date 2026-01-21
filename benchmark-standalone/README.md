@@ -7,7 +7,7 @@
 ✅ **Независимость** - не зависит от внутренних компонентов agent-runtime  
 ✅ **Простота** - общение только с Gateway через WebSocket  
 ✅ **Портативность** - можно запускать на любой машине  
-✅ **Полнота** - 40 задач с автоматической валидацией  
+✅ **Полнота** - набор задач с автоматической валидацией  
 ✅ **Метрики** - комплексная система сбора и анализа  
 
 ## Архитектура
@@ -15,7 +15,7 @@
 ```
 benchmark-standalone
     │
-    ├─> Gateway WebSocket (ws://localhost:8000/ws/benchmark)
+    ├─> Gateway WebSocket (ws://localhost:80/api/v1/ws)
     │   └─> Agent Runtime → LLM Proxy
     │
     ├─> MockToolExecutor (локальное выполнение tools)
@@ -31,34 +31,24 @@ benchmark-standalone
 
 - Python >= 3.12
 - [uv](https://github.com/astral-sh/uv) - современный package manager (рекомендуется)
-- Запущенный Gateway на порту 8000
+- Запущенный Gateway (через nginx на порту 80 или напрямую на 8000)
 - (Опционально) Flutter SDK для валидации
 
-## Установка
+## Быстрый старт
 
-### Через uv (рекомендуется)
+### 1. Установка зависимостей
 
 ```bash
 cd benchmark-standalone
 
-# Установить зависимости
+# Установить зависимости через uv
 uv sync
 
 # Установить dev зависимости (ruff, ty, pytest)
 uv sync --group dev
 ```
 
-### Через pip
-
-```bash
-cd benchmark-standalone
-pip install -e .
-
-# Dev зависимости
-pip install -e ".[dev]"
-```
-
-## Конфигурация
+### 2. Конфигурация
 
 Отредактируйте [`config.yaml`](config.yaml):
 
@@ -68,7 +58,7 @@ gateway:
   ws_url: "ws://localhost:80/api/v1/ws"
   
   # Аутентификация (выбрать один из вариантов)
-  auth_type: "internal"  # "internal" или "jwt"
+  auth_type: "jwt"  # "internal" или "jwt"
   
   # Internal API Key (для auth_type: internal)
   api_key: "change-me-in-production"
@@ -76,112 +66,36 @@ gateway:
   # JWT аутентификация (для auth_type: jwt)
   jwt:
     auth_url: "http://localhost:80/oauth/token"
-    username: "admin@example.com"
-    password: "admin123"
-    client_id: "benchmark-client"
+    username: "admin"
+    password: "admin"
+    client_id: "codelab-flutter-app"
 
 database:
   url: "sqlite:///data/metrics.db"
 
 benchmark:
-  tasks_file: "tasks.yaml"
-  test_project: "./test_project"
+  tasks_file: "tasks-samples/tasks.yaml"
+  test_project: "./_test_project"
   enable_validation: true
 ```
 
-### Аутентификация
-
-**Вариант 1: Internal API Key (по умолчанию)**
-```yaml
-gateway:
-  auth_type: "internal"
-  api_key: "change-me-in-production"
-```
-
-**Вариант 2: JWT Token (OAuth2)**
-```yaml
-gateway:
-  auth_type: "jwt"
-  jwt:
-    auth_url: "http://localhost:80/oauth/token"
-    username: "your-email@example.com"
-    password: "your-password"
-    client_id: "benchmark-client"
-```
-
-## Development Tools
-
-Проект использует современные инструменты разработки:
-
-### uv - Package Manager
+### 3. Проверка подключения
 
 ```bash
-# Установить зависимости
-uv sync
-
-# Установить dev зависимости
-uv sync --group dev
-
-# Запустить скрипт
-uv run python main.py --task-id task_001
-
-# Добавить новую зависимость
-uv add <package>
+uv run python test_connection.py
 ```
 
-### ruff - Linting и форматирование
-
-```bash
-# Проверить код
-uv run ruff check .
-
-# Автоматическое исправление
-uv run ruff check --fix .
-
-# Форматирование кода
-uv run ruff format .
-
-# Проверка и форматирование
-uv run ruff check --fix . && uv run ruff format .
-```
-
-### ty - Type Checking
-
-```bash
-# Проверить типы
-uv run ty check src/
-
-# С подробным выводом
-uv run ty check --verbose src/
-
-# Проверить конкретный файл
-uv run ty check src/client.py
-```
-
-### pytest - Тестирование
-
-```bash
-# Запустить тесты (когда будут созданы)
-uv run pytest
-
-# С coverage
-uv run pytest --cov=src
-
-# Конкретный тест
-uv run pytest tests/test_client.py
-```
-
-## Использование
-
-### Быстрый старт
+### 4. Запуск задачи
 
 ```bash
 # Запустить одну задачу
 uv run python main.py --task-id task_001
 
-# Запустить с генерацией отчета
+# С генерацией отчета
 uv run python main.py --task-id task_001 --generate-report
 ```
+
+## Использование
 
 ### Фильтрация задач
 
@@ -231,13 +145,18 @@ uv run python generate_report.py --latest
 
 ```
 benchmark-standalone/
-├── pyproject.toml              # Зависимости
+├── pyproject.toml              # Зависимости проекта
 ├── config.yaml                 # Конфигурация
-├── tasks.yaml                  # 40 benchmark задач
+├── tasks.yaml                  # Benchmark задачи (deprecated, см. tasks-samples/)
 ├── main.py                     # Главный скрипт
+├── generate_report.py          # Генератор отчетов
+├── test_connection.py          # Тест подключения
+├── test_token_refresh.py       # Тест обновления токенов
 ├── README.md                   # Эта документация
+├── CHANGELOG.md                # История изменений
 ├── src/                        # Исходный код
 │   ├── __init__.py
+│   ├── auth.py                # Управление аутентификацией
 │   ├── client.py              # Gateway WebSocket клиент
 │   ├── executor.py            # Локальное выполнение tools
 │   ├── validator.py           # Автоматическая валидация
@@ -245,13 +164,18 @@ benchmark-standalone/
 │   ├── database.py            # Database управление
 │   ├── collector.py           # Сбор метрик
 │   └── reporter.py            # Генерация отчетов
-├── data/                       # База данных
+├── doc/                        # Документация
+│   ├── ARCHITECTURE.md        # Архитектура системы
+│   ├── QUICKSTART.md          # Быстрый старт
+│   ├── AUTHENTICATION.md      # Аутентификация
+│   └── DEVELOPMENT.md         # Разработка
+├── data/                       # База данных (создается автоматически)
 │   └── metrics.db
-├── test_project/              # Flutter проект для валидации
-│   ├── pubspec.yaml
-│   └── lib/
-└── reports/                    # Сгенерированные отчеты
-    └── report_*.md
+├── reports/                    # Отчеты (создается автоматически)
+│   └── report_*.md
+├── tasks-samples/             # Примеры задач
+│   └── tasks.yaml
+└── _test_project/             # Flutter проект для тестирования
 ```
 
 ## Компоненты
@@ -263,14 +187,24 @@ WebSocket клиент для общения с Gateway:
 - Получение ответов
 - Обработка tool calls
 - Отправка tool results
+- Автоматическое обновление JWT токенов
+
+### AuthManager
+
+Управление аутентификацией:
+- Internal API Key аутентификация
+- JWT OAuth2 аутентификация
+- Автоматическое обновление токенов при 401
+- Thread-safe refresh механизм
 
 ### MockToolExecutor
 
 Локальное выполнение tools в test_project:
-- `write_file` - создание/изменение файлов
+- `write_file` / `write_to_file` - создание/изменение файлов
 - `read_file` - чтение файлов
 - `list_files` - список файлов
-- `search_in_code` - поиск в коде
+- `search_in_code` / `search_files` - поиск в коде
+- `apply_diff` - применение изменений
 
 ### TaskValidator
 
@@ -299,45 +233,54 @@ WebSocket клиент для общения с Gateway:
 - Сравнительный анализ
 - Рекомендации
 
-## Примеры
+## Development Tools
 
-### Пример 1: Тестирование одной задачи
+Проект использует современные инструменты разработки:
+
+### uv - Package Manager
 
 ```bash
-# Убедитесь что Gateway запущен
-# cd codelab-ai-service/gateway && uv run uvicorn app.main:app --port 8000
+# Установить зависимости
+uv sync
 
-# Проверить подключение
-uv run python test_connection.py
+# Запустить скрипт
+uv run python main.py --task-id task_001
 
-# Запустить задачу
-uv run python main.py --task-id task_001 --generate-report
+# Добавить новую зависимость
+uv add <package>
 ```
 
-### Пример 2: Сравнение режимов
+### ruff - Linting и форматирование
 
 ```bash
-# Запустить 10 простых задач в обоих режимах
-uv run python main.py --mode both --category simple --limit 10 --generate-report
-```
+# Проверить код
+uv run ruff check .
 
-### Пример 3: Полный эксперимент
-
-```bash
-# Запустить все 40 задач в multi-agent режиме
-uv run python main.py --mode multi-agent --generate-report
-```
-
-### Пример 4: Development workflow
-
-```bash
-# Проверить код перед коммитом
+# Автоматическое исправление
 uv run ruff check --fix .
+
+# Форматирование кода
 uv run ruff format .
+```
+
+### ty - Type Checking
+
+```bash
+# Проверить типы
 uv run ty check src/
 
+# С подробным выводом
+uv run ty check --verbose src/
+```
+
+### pytest - Тестирование
+
+```bash
 # Запустить тесты
 uv run pytest
+
+# С coverage
+uv run pytest --cov=src
 ```
 
 ## Метрики
@@ -361,9 +304,23 @@ uv run pytest
 
 **Решение:**
 ```bash
+# Проверить статус через docker-compose
+cd codelab-ai-service
+docker-compose ps
+
+# Или запустить Gateway напрямую
 cd codelab-ai-service/gateway
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
+
+### Ошибка: "401 Unauthorized"
+
+**Причина:** Неверные учетные данные или истекший токен
+
+**Решение:**
+- Проверьте настройки аутентификации в [`config.yaml`](config.yaml)
+- Для JWT: убедитесь что auth-service запущен
+- Для Internal: проверьте API ключ
 
 ### Ошибка: "Tasks file not found"
 
@@ -371,8 +328,8 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 **Решение:**
 ```bash
-# Скопировать из benchmark
-cp codelab-ai-service/benchmark/poc_benchmark_tasks.yaml benchmark-standalone/tasks.yaml
+# Использовать примеры задач
+# В config.yaml установить: tasks_file: "tasks-samples/tasks.yaml"
 ```
 
 ### Ошибка: "dart command not found"
@@ -383,15 +340,13 @@ cp codelab-ai-service/benchmark/poc_benchmark_tasks.yaml benchmark-standalone/ta
 - Установите Flutter SDK или
 - Отключите валидацию в config.yaml: `enable_validation: false`
 
-## Отличия от оригинального benchmark
+## Документация
 
-| Аспект | Оригинальный benchmark | benchmark-standalone |
-|--------|------------------------|----------------------|
-| Зависимости | agent-runtime модули | Минимальные (websockets, sqlalchemy) |
-| Общение | Прямой импорт или HTTP/WS | Только Gateway WebSocket |
-| База данных | Общая с agent-runtime | Независимая SQLite |
-| Портативность | Требует agent-runtime | Полностью независимое |
-| Сложность | Высокая | Низкая |
+- [`doc/ARCHITECTURE.md`](doc/ARCHITECTURE.md) - Архитектура системы
+- [`doc/QUICKSTART.md`](doc/QUICKSTART.md) - Быстрый старт
+- [`doc/AUTHENTICATION.md`](doc/AUTHENTICATION.md) - Настройка аутентификации
+- [`doc/DEVELOPMENT.md`](doc/DEVELOPMENT.md) - Руководство разработчика
+- [`CHANGELOG.md`](CHANGELOG.md) - История изменений
 
 ## Лицензия
 
