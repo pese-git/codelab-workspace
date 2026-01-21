@@ -8,7 +8,7 @@
 ![Status](https://img.shields.io/badge/status-MVP-green)
 
 **Версия**: 1.0 (MVP)
-**Дата обновления**: 11 января 2026
+**Дата обновления**: 21 января 2026
 
 ## 🎯 Основные возможности
 
@@ -55,10 +55,17 @@ codelab-workspace/
 ├── website/                  # Документация (Docusaurus)
 │   └── docs/                 # Полная документация проекта
 │
-├── doc/                      # Техническая документация и планы
+├── doc/                      # Техническая документация
+│   ├── design_doc.md         # Дизайн-документ проекта
+│   ├── product_description.md # Описание продукта
+│   ├── competitive_analysis.md # Конкурентный анализ
+│   ├── PROJECT_ROADMAP_2026.md # Roadmap на 2026 год
+│   ├── DOCUMENTATION_AUDIT_REPORT.md # Аудит документации
+│   ├── poc/                  # Proof of Concept документация
+│   └── reports/archive/      # Архив исторических отчетов
 │
-├── DOCUMENTATION_AUDIT_REPORT.md  # Аудит документации
-└── PROJECT_ROADMAP_2026.md        # Roadmap развития на 2026 год
+├── benchmark-standalone/     # Standalone бенчмарк система
+└── codelab-chart/           # Kubernetes Helm charts
 ```
 
 ## 🚀 Быстрый старт
@@ -299,22 +306,28 @@ python app/main.py
 - [Тестирование](website/docs/development/testing.md)
 - [Contributing](website/docs/development/contributing.md)
 
-### 📋 Аналитические отчеты
-- **[Documentation Audit Report](DOCUMENTATION_AUDIT_REPORT.md)** - Аудит документации проекта
-- **[Project Roadmap 2026](PROJECT_ROADMAP_2026.md)** - План развития на 2026 год
+### 📋 Техническая документация
 
-### 📖 Компонентная документация
+**Основные документы** ([`doc/`](doc/)):
+- **[Design Document](doc/design_doc.md)** - Полный дизайн-документ проекта
+- **[Product Description](doc/product_description.md)** - Описание продукта и бизнес-модель
+- **[Competitive Analysis](doc/competitive_analysis.md)** - Анализ конкурентов
+- **[Project Roadmap 2026](doc/PROJECT_ROADMAP_2026.md)** - План развития на 2026 год
+- **[Documentation Audit](doc/DOCUMENTATION_AUDIT_REPORT.md)** - Аудит документации
+
+**Компонентная документация:**
 - **[IDE Documentation](codelab_ide/README.md)** - Полное руководство по Flutter IDE
 - **[AI Service Documentation](codelab-ai-service/README.md)** - Документация по микросервисам
+- **[Deployment Guide](codelab-chart/README.md)** - Kubernetes развертывание
 
-### 🗂️ Техническая документация
-- **[Multi-Agent README](codelab-ai-service/doc/MULTI_AGENT_README.md)** - Мультиагентная система
+**Специализированная документация:**
+- **[Multi-Agent System](codelab-ai-service/doc/MULTI_AGENT_README.md)** - Мультиагентная система
 - **[HITL Implementation](codelab-ai-service/doc/HITL_IMPLEMENTATION.md)** - Human-in-the-Loop
-- **[Session Persistence Guide](codelab-ai-service/agent-runtime/SESSION_PERSISTENCE_GUIDE.md)** - Персистентность сессий
-- **[Migration Complete](codelab-ai-service/agent-runtime/MIGRATION_COMPLETE.md)** - Async database миграция
+- **[Session Persistence](codelab-ai-service/agent-runtime/SESSION_PERSISTENCE_GUIDE.md)** - Персистентность сессий
 
-### ⚠️ Устаревшая документация
-- **[POC Documentation](doc/poc/README.md)** - Документация POC (помечена как устаревшая)
+**Архивная документация:**
+- **[POC Documentation](doc/poc/README.md)** - Документация Proof of Concept (частично устаревшая)
+- **[Historical Reports](doc/reports/archive/)** - Архив отчетов о разработке
 
 ## 🧪 Тестирование
 
