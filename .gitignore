@@ -1,1 +1,4 @@
 doc/raw
+
+# macOS
+.DS_Store

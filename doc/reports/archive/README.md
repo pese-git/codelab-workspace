@@ -11,6 +11,7 @@
 - `AGENT_RUNTIME_IMPLEMENTATION_STATUS.md` - Статус реализации компонентов
 - `AGENT_RUNTIME_LEGACY_CODE_ANALYSIS.md` - Анализ legacy кода
 - `AGENT_RUNTIME_REFACTORING_FINAL_REPORT.md` - Финальный отчет по рефакторингу
+- `AGENT_RUNTIME_REFACTORING_PLAN.md` - План рефакторинга agent-runtime
 - `AGENT_RUNTIME_REFACTORING_PROGRESS.md` - Прогресс рефакторинга
 
 ### Технические отчеты
