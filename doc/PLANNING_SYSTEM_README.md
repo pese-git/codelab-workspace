@@ -1,8 +1,8 @@
 # Система планирования CodeLab Agent Runtime
 
-**Версия документации:** 1.0  
-**Дата:** 30 января 2026  
-**Статус:** 🟢 Ready for Development
+**Версия документации:** 1.1
+**Дата:** 31 января 2026
+**Статус:** 🟢 60% Complete - Ready for Integration
 
 ---
 
@@ -12,13 +12,30 @@
 
 ### Основные документы
 
-| Документ | Описание | Читать |
+| Документ | Описание | Статус |
 |----------|---------|--------|
-| **[Архитектура системы](planning-system-architecture.md)** | Обзор архитектуры, диаграммы, интеграция всех компонентов | ⭐ Начните отсюда |
-| **[FSM Orchestrator](fsm-orchestrator-design.md)** | Конечный автомат для управления состоянием задачи | [→](fsm-orchestrator-design.md) |
-| **[Execution Engine](execution-engine-design.md)** | Движок исполнения планов с управлением зависимостями | [→](execution-engine-design.md) |
-| **[Task Classifier](task-classifier-design.md)** | Классификация задач на атомарные/неатомарные | [→](task-classifier-design.md) |
-| **[Plan Repository](plan-repository-design.md)** | Персистентность планов в БД | [→](plan-repository-design.md) |
+| **[Архитектура системы](planning-system-architecture.md)** | Обзор архитектуры, диаграммы, интеграция | ⭐ Начните отсюда |
+| **[Dashboard](PLANNING_SYSTEM_DASHBOARD.md)** | Интерактивный дашборд прогресса | 📊 NEW |
+| **[Summary](PLANNING_SYSTEM_SUMMARY.md)** | Executive summary | 📝 NEW |
+| **[Final Report](PLANNING_SYSTEM_FINAL_REPORT.md)** | Детальный отчёт реализации | 📋 NEW |
+
+### Дизайн компонентов
+
+| Документ | Описание | Статус |
+|----------|---------|--------|
+| **[FSM Orchestrator](fsm-orchestrator-design.md)** | Конечный автомат для управления состоянием | ✅ Реализовано |
+| **[Task Classifier](task-classifier-design.md)** | Классификация задач | ✅ Реализовано |
+| **[Execution Engine](execution-engine-design.md)** | Движок исполнения планов | ✅ Реализовано |
+| **[Plan Repository](plan-repository-design.md)** | Персистентность планов в БД | ✅ Реализовано |
+| **[Execution Architecture](execution-engine-architecture.md)** | Архитектура execution layer | 🎨 NEW |
+
+### Руководства разработчика
+
+| Документ | Описание | Аудитория |
+|----------|---------|-----------|
+| **[Quick Start](../codelab-ai-service/agent-runtime/doc/PLANNING_SYSTEM_QUICKSTART.md)** | Быстрый старт | Разработчики |
+| **[Execution Engine Guide](../codelab-ai-service/agent-runtime/doc/EXECUTION_ENGINE_GUIDE.md)** | Руководство по ExecutionEngine | Разработчики (NEW) |
+| **[Execution Layer README](../codelab-ai-service/agent-runtime/doc/EXECUTION_LAYER_README.md)** | Quick reference | Разработчики (NEW) |
 
 ---
 
@@ -86,15 +103,26 @@
 
 📖 [Детальный дизайн](task-classifier-design.md)
 
-### 3. Execution Engine
+### 3. Execution Engine ✅
 **Исполнение плана с управлением зависимостями**
 
-- Разрешение зависимостей между subtasks
-- Маршрутизация на целевого агента
-- Обработка ошибок и retry
-- Отслеживание прогресса
+- ✅ Разрешение зависимостей между subtasks
+- ✅ Параллельное выполнение независимых задач
+- ✅ Батчирование с учётом max_parallel_tasks
+- ✅ Обработка ошибок и cancellation
+- ✅ Мониторинг прогресса и агрегация результатов
 
-📖 [Детальный дизайн](execution-engine-design.md)
+📖 [Детальный дизайн](execution-engine-design.md) | 🎨 [Архитектура](execution-engine-architecture.md) | 📚 [Руководство](../codelab-ai-service/agent-runtime/doc/EXECUTION_ENGINE_GUIDE.md)
+
+### 3.1. SubtaskExecutor ✅
+**Выполнение одной подзадачи в целевом агенте**
+
+- ✅ Маршрутизация к агентам (Coder, Debug, Ask)
+- ✅ Контекст с результатами зависимостей
+- ✅ Retry logic для failed subtasks
+- ✅ Обновление статусов в БД
+
+📖 [Код](../codelab-ai-service/agent-runtime/app/domain/services/subtask_executor.py) | 🧪 [Тесты](../codelab-ai-service/agent-runtime/tests/test_subtask_executor.py)
 
 ### 4. Plan Repository
 **Персистентность планов в БД**
@@ -212,10 +240,15 @@ if is_atomic == false:
 
 ### Unit тесты
 ```bash
-pytest tests/test_fsm_orchestrator.py -v
-pytest tests/test_task_classifier.py -v
-pytest tests/test_execution_engine.py -v
-pytest tests/test_plan_repository.py -v
+# Все тесты системы планирования
+cd codelab-ai-service/agent-runtime
+uv run pytest tests/test_task_classifier.py tests/test_fsm_orchestrator.py tests/test_subtask_executor.py tests/test_execution_engine.py -v
+
+# Отдельные компоненты
+uv run pytest tests/test_fsm_orchestrator.py -v
+uv run pytest tests/test_task_classifier.py -v
+uv run pytest tests/test_subtask_executor.py -v  # NEW
+uv run pytest tests/test_execution_engine.py -v  # NEW
 ```
 
 ### Integration тесты
@@ -271,5 +304,5 @@ A: Да, если они независимы (нет зависимостей �
 
 ---
 
-**Last updated:** 30 января 2026  
-**Статус:** ✅ Production Ready for Development
+**Last updated:** 31 января 2026
+**Статус:** ✅ 60% Complete - Execution Layer Ready
