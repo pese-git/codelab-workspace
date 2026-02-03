@@ -1,271 +1,221 @@
-# Анализ логов Agent Runtime (Docker Compose)
+# Анализ логов Agent Runtime
 
-**Дата:** 2026-02-01  
-**Время:** 18:43-18:47 UTC  
-**Статус:** Критическая ошибка обнаружена
+**Дата анализа:** 2026-02-03  
+**Сессия:** 2704be24-b23c-4a4f-932e-8c89382ea998
+
+## 🔴 Критическая ошибка
+
+### ModuleNotFoundError: No module named 'app.models.hitl_models'
+
+**Время:** 2026-02-03 05:34:45,278  
+**Локация:** [`app/domain/services/hitl_decision_handler.py:87`](../codelab-ai-service/agent-runtime/app/domain/services/hitl_decision_handler.py:87)
+
+```python
+ModuleNotFoundError: No module named 'app.models.hitl_models'
+```
+
+**Стек вызовов:**
+1. `messages_router.py:233` → `hitl_decision_generate()`
+2. `message_orchestration.py:282` → `process_hitl_decision()`
+3. `hitl_decision_handler.py:87` → `from ...models.hitl_models import HITLDecision`
+
+### Причина
+Модуль `app.models.hitl_models` не существует или импорт использует неправильный путь.
+
+### Последствия
+- ❌ HITL решения (approve/reject) не обрабатываются
+- ❌ Пользователь не может одобрить выполнение команд
+- ❌ Workflow блокируется на этапе approval
 
 ---
 
-## 🔴 Критическая проблема: SQLite Database Locked
+## ✅ Что работает корректно
 
-### Основная ошибка
-
+### 1. Переключение агентов
 ```
-sqlalchemy.exc.PendingRollbackError: This Session's transaction has been rolled back 
-due to a previous exception during flush. To begin a new transaction with this Session, 
-first issue Session.rollback(). 
-
-Original exception was: (sqlite3.OperationalError) database is locked
+05:34:41 - Агент переключен: orchestrator -> coder
+Причина: Running 'dart analyze' is a direct command
 ```
+- ✅ AgentSwitcher работает
+- ✅ События `AgentSwitchRequested` и `AgentSwitched` публикуются
+- ✅ Контекст обновляется
 
-### Контекст ошибки
-
-**Операция:** Сохранение плана в БД  
-**Файл:** [`plan_repository_impl.py:73-90`](codelab-ai-service/agent-runtime/app/infrastructure/persistence/repositories/plan_repository_impl.py:73)  
-**Вызов:** [`architect_agent.py:243`](codelab-ai-service/agent-runtime/app/agents/architect_agent.py:243)
-
-**SQL запрос:**
-```sql
-INSERT INTO plans (
-  id, session_id, goal, status, current_subtask_id, 
-  metadata_json, approved_at, started_at, completed_at, 
-  created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+### 2. LLM взаимодействие
 ```
+05:34:41 - LLM request started
+05:34:43 - LLM response received: 1106 chars, 2445ms
+```
+- ✅ Запросы к LLM-proxy успешны
+- ✅ Streaming работает
+- ✅ Tool calls детектируются
 
-**Параметры:**
-- `plan_id`: `cfda95c7-beae-4ba9-b1bb-80dc284b6b1b`
-- `session_id`: `0ba76b61-4e22-4a43-9f49-a0b1cad7f0c1`
-- `goal`: "открыт пустой проект, создай тестовое приложение на flutter"
-- `status`: `approved` ⚠️ (план сразу approved, минуя PLAN_REVIEW!)
+### 3. HITL Policy
+```
+05:34:43 - Tool 'execute_command' matched rule: requires_approval=True
+05:34:43 - TOOL_APPROVAL_REQUIRED event published
+```
+- ✅ Политика HITL применяется
+- ✅ Approval создается в БД
+- ✅ События публикуются
+
+### 4. Tool Result обработка
+```
+05:34:46 - Processing tool_result: call_id=call_6OGe4RoFNCvmq4OTWeADzpF7
+05:34:46 - Approval approved: call_6OGe4RoFNCvmq4OTWeADzpF7
+05:34:46 - Результат инструмента добавлен в сессию
+```
+- ✅ Tool results принимаются
+- ✅ Approval обновляется в БД
+- ✅ Продолжение обработки работает
+
+### 5. Database транзакции
+```
+05:34:48 - Transaction committed successfully
+05:34:48 - Session closed
+```
+- ✅ Транзакции коммитятся
+- ✅ Сессии закрываются корректно
+
+### 6. Health checks
+```
+05:35:17 - Health check called - 200 OK
+05:35:47 - Health check called - 200 OK
+```
+- ✅ Контейнер здоров
+- ✅ Периодические проверки проходят
 
 ---
 
-## 🐛 Выявленные проблемы
+## 📊 Метрики сессии
 
-### 1. SQLite Database Locking (Критично)
-
-**Причина:** SQLite не поддерживает параллельные записи. В многопоточной среде Docker возникают блокировки.
-
-**Симптомы:**
-- ❌ `database is locked` при INSERT операциях
-- ❌ `PendingRollbackError` - транзакция откатилась, но сессия не сброшена
-- ❌ Повторные попытки записи падают с той же ошибкой
-
-**Решение:**
-- 🔧 **Краткосрочное:** Добавить retry логику с rollback
-- ✅ **Долгосрочное:** Мигрировать на PostgreSQL (уже есть `POSTGRES_MIGRATION_SUMMARY.md`)
-
-### 2. План создается со статусом 'approved' (Критично)
-
-**Проблема:** План сохраняется со статусом `approved` вместо `draft`.
-
-**Код:** [`architect_agent.py`](codelab-ai-service/agent-runtime/app/agents/architect_agent.py:243)
-
-```python
-# План создается и сразу approve() вызывается?
-plan = Plan(...)
-plan.approve()  # ⚠️ Не должно быть здесь!
-await self.plan_repository.save(plan)
-```
-
-**Последствия:**
-- ❌ Пропускается состояние `PLAN_REVIEW`
-- ❌ Пользователь не видит запрос на approval
-- ❌ FSM workflow нарушен
-
-**Ожидаемый flow:**
-```
-1. План создается со статусом 'draft'
-2. FSM: ARCHITECT_PLANNING → PLAN_REVIEW
-3. Отправка plan_approval_required
-4. Ожидание решения пользователя
-5. После approve: план.approve() → статус 'approved'
-6. FSM: PLAN_REVIEW → PLAN_EXECUTION
-```
-
-**Текущий flow (неправильный):**
-```
-1. План создается со статусом 'approved' ❌
-2. FSM: ARCHITECT_PLANNING → PLAN_REVIEW
-3. Отправка plan_approval_required (но план уже approved!)
-4. Попытка сохранить → database locked
-```
-
-### 3. Отсутствие обработки ошибок транзакций
-
-**Проблема:** После `database is locked` сессия не выполняет `rollback()`.
-
-**Код:** [`plan_repository_impl.py:73-90`](codelab-ai-service/agent-runtime/app/infrastructure/persistence/repositories/plan_repository_impl.py:73)
-
-```python
-async def save(self, plan: Plan) -> None:
-    try:
-        # ... INSERT operation
-        await self._db.flush()
-    except Exception as e:
-        # ❌ Нет rollback!
-        raise RepositoryError(...)
-```
-
-**Решение:**
-```python
-async def save(self, plan: Plan) -> None:
-    try:
-        # ... INSERT operation
-        await self._db.flush()
-    except Exception as e:
-        await self._db.rollback()  # ✅ Добавить rollback
-        raise RepositoryError(...)
-```
+| Метрика | Значение |
+|---------|----------|
+| **LLM запросов** | 2 |
+| **Общее время LLM** | 4596ms (2445ms + 2151ms) |
+| **Токенов использовано** | 2528 |
+| **Переключений агентов** | 1 (orchestrator → coder) |
+| **Tool calls** | 1 (execute_command) |
+| **Approvals** | 1 (pending → approved) |
 
 ---
 
-## 📊 Последовательность событий (Timeline)
+## 🔍 Детальный flow
 
-```
-18:43:19.531 - План создается (id: cfda95c7-beae-4ba9-b1bb-80dc284b6b1b)
-18:43:19.532 - approved_at устанавливается (план уже approved!)
-18:43:19.536 - Попытка INSERT в таблицу plans
-18:43:19.xxx - SQLite: database is locked ❌
-18:43:19.xxx - Transaction rollback (автоматический)
-18:43:19.xxx - Попытка повторного INSERT
-18:43:19.xxx - PendingRollbackError (сессия не сброшена) ❌
-18:43:56.096 - Ошибка пробрасывается в orchestrator
-18:43:56.096 - FSM: architect_planning → error_handling
-18:43:56.097 - Обработка завершена с ошибкой
-18:43:56.108 - Commit транзакции (пустой, т.к. rollback был)
-```
+### Шаг 1: Обработка сообщения (05:34:41)
+1. ✅ Orchestrator получил сообщение "вызови dart analyze"
+2. ✅ Определил необходимость переключения на coder
+3. ✅ Переключение выполнено успешно
 
----
+### Шаг 2: LLM запрос (05:34:41-05:34:43)
+1. ✅ Coder agent вызвал LLM
+2. ✅ LLM вернул tool_call: `execute_command`
+3. ✅ HITL policy определила: requires_approval=True
+4. ✅ Approval создан в БД
 
-## 🔧 Рекомендуемые исправления
+### Шаг 3: HITL Decision (05:34:45) ❌
+1. ✅ Gateway отправил approve decision
+2. ❌ **ОШИБКА:** ModuleNotFoundError при импорте HITLDecision
+3. ❌ Обработка прервана
 
-### Приоритет 1: Исправить статус плана при создании
+### Шаг 4: Tool Result (05:34:46)
+1. ✅ Gateway отправил tool_result
+2. ✅ Approval обновлен на "approved"
+3. ✅ Tool result добавлен в сессию
+4. ✅ Продолжение обработки с coder agent
 
-**Файл:** [`architect_agent.py`](codelab-ai-service/agent-runtime/app/agents/architect_agent.py:243)
-
-```python
-# Создать план со статусом 'draft'
-plan = Plan(
-    id=plan_id,
-    session_id=session_id,
-    goal=task,
-    status=PlanStatus.DRAFT,  # ✅ НЕ approved!
-    # ...
-)
-
-# НЕ вызывать approve() здесь!
-# plan.approve()  # ❌ Удалить
-
-# Сохранить план
-await self.plan_repository.save(plan)
-
-# Approve будет вызван позже, после решения пользователя
-# в PlanApprovalHandler.handle()
-```
-
-### Приоритет 2: Добавить rollback в обработку ошибок
-
-**Файл:** [`plan_repository_impl.py`](codelab-ai-service/agent-runtime/app/infrastructure/persistence/repositories/plan_repository_impl.py:73-90)
-
-```python
-async def save(self, plan: Plan) -> None:
-    try:
-        # Check if plan exists
-        result = await self._db.execute(
-            select(PlanModel).where(PlanModel.id == plan.id)
-        )
-        existing_model = result.scalar_one_or_none()
-        
-        if existing_model:
-            # Update existing
-            # ...
-        else:
-            # Create new
-            plan_model = PlanMapper.to_model(plan)
-            self._db.add(plan_model)
-        
-        await self._db.flush()
-        
-    except Exception as e:
-        # ✅ Добавить rollback
-        logger.error(f"Error saving plan {plan.id}: {e}")
-        await self._db.rollback()
-        
-        raise RepositoryError(
-            operation="save",
-            entity_type="Plan",
-            reason=str(e),
-            details={"plan_id": plan.id}
-        ) from e
-```
-
-### Приоритет 3: Мигрировать на PostgreSQL
-
-**Статус:** Документация уже существует  
-**Файлы:**
-- [`POSTGRES_MIGRATION_SUMMARY.md`](codelab-ai-service/POSTGRES_MIGRATION_SUMMARY.md)
-- [`POSTGRES_QUICKSTART.md`](codelab-ai-service/POSTGRES_QUICKSTART.md)
-
-**Преимущества PostgreSQL:**
-- ✅ Поддержка параллельных записей (MVCC)
-- ✅ Лучшая производительность для многопользовательских систем
-- ✅ Расширенные возможности (JSON, полнотекстовый поиск)
-- ✅ Production-ready
+### Шаг 5: Финальный ответ (05:34:48)
+1. ✅ LLM вернул assistant message (55 chars)
+2. ✅ Сообщение сохранено в сессию
+3. ✅ Транзакция закоммичена
 
 ---
 
-## 📈 Метрики из логов
+## 🐛 Проблемы и предупреждения
 
-**Обработка сообщения:**
-- Длительность: 41,788.52 ms (~42 секунды)
-- Успех: True (но с ошибкой внутри)
-- Агент: orchestrator
+### 1. ❌ Критическая: Missing module
+```
+ModuleNotFoundError: No module named 'app.models.hitl_models'
+```
+**Приоритет:** ВЫСОКИЙ  
+**Требуется:** Создать модуль или исправить импорт
 
-**FSM переходы:**
-1. `architect_planning` → `error_handling` (event: `planning_failed`)
+### 2. ⚠️ Предупреждение: Unknown tools
+```
+WARNING - Requested unknown tools: ['attempt_completion', 'ask_followup_question']
+```
+**Причина:** Инструменты запрошены, но не зарегистрированы  
+**Приоритет:** СРЕДНИЙ
 
-**Health checks:**
-- Интервал: каждые 30 секунд
-- Статус: 200 OK (сервис работает)
+### 3. ⚠️ Предупреждение: Missing call_id
+```
+WARNING - Не найден call_id для switch_mode tool_call
+```
+**Причина:** switch_mode не добавляет tool_result  
+**Приоритет:** НИЗКИЙ (это ожидаемое поведение)
+
+### 4. ⚠️ Nginx unhealthy
+```
+codelab-ai-service-nginx-1 - Up 28 minutes (unhealthy)
+```
+**Требуется:** Проверить конфигурацию nginx
+
+---
+
+## 🔧 Рекомендации
+
+### Немедленные действия
+
+1. **Исправить импорт HITLDecision**
+   ```python
+   # Проверить существование файла:
+   # codelab-ai-service/agent-runtime/app/models/hitl_models.py
+   
+   # Или исправить импорт в hitl_decision_handler.py
+   ```
+
+2. **Зарегистрировать недостающие инструменты**
+   - `attempt_completion`
+   - `ask_followup_question`
+
+3. **Проверить nginx health check**
+   ```bash
+   docker-compose logs nginx
+   ```
+
+### Улучшения
+
+1. **Добавить retry логику** для HITL decision
+2. **Улучшить логирование** импортов модулей
+3. **Добавить валидацию** наличия всех требуемых модулей при старте
+
+---
+
+## 📈 Производительность
+
+| Компонент | Время отклика |
+|-----------|---------------|
+| LLM запрос #1 | 2445ms ✅ |
+| LLM запрос #2 | 2151ms ✅ |
+| DB операции | <10ms ✅ |
+| Lock acquire/release | <1ms ✅ |
+
+**Вывод:** Производительность в норме, узких мест не обнаружено.
 
 ---
 
 ## 🎯 Выводы
 
-### Основные проблемы:
+### Положительные
+- ✅ Архитектура работает стабильно
+- ✅ Event-driven подход функционирует
+- ✅ Переключение агентов работает
+- ✅ HITL approval flow частично работает
+- ✅ Database транзакции надежны
 
-1. ❌ **SQLite database locking** - блокирует сохранение планов
-2. ❌ **План создается approved** - пропускается PLAN_REVIEW
-3. ❌ **Нет rollback** - сессия остается в broken state
+### Требуют внимания
+- ❌ **Критично:** Отсутствует модуль `hitl_models`
+- ⚠️ Nginx в unhealthy состоянии
+- ⚠️ Некоторые инструменты не зарегистрированы
 
-### Связь с plan approval:
-
-Проблема с approval **частично связана** с database locking:
-- План не может быть сохранен из-за блокировки БД
-- Даже если бы сохранился, он уже `approved` (неправильно)
-- Пользователь не получает запрос на approval
-
-### Приоритет исправлений:
-
-1. 🔴 **Высокий:** Исправить статус плана при создании (draft вместо approved)
-2. 🟡 **Средний:** Добавить rollback в обработку ошибок
-3. 🟢 **Низкий:** Мигрировать на PostgreSQL (долгосрочное решение)
-
----
-
-## 📝 Связанные документы
-
-- [`PLAN_APPROVAL_MECHANISM_ISSUE_ANALYSIS.md`](doc/PLAN_APPROVAL_MECHANISM_ISSUE_ANALYSIS.md) - Анализ проблемы approval на клиенте
-- [`POSTGRES_MIGRATION_SUMMARY.md`](codelab-ai-service/POSTGRES_MIGRATION_SUMMARY.md) - План миграции на PostgreSQL
-- [`POSTGRES_QUICKSTART.md`](codelab-ai-service/POSTGRES_QUICKSTART.md) - Быстрый старт с PostgreSQL
-
----
-
-## 🚀 Следующие шаги
-
-1. Исправить создание плана в [`architect_agent.py`](codelab-ai-service/agent-runtime/app/agents/architect_agent.py:243)
-2. Добавить rollback в [`plan_repository_impl.py`](codelab-ai-service/agent-runtime/app/infrastructure/persistence/repositories/plan_repository_impl.py:73)
-3. Протестировать plan approval flow
-4. Рассмотреть миграцию на PostgreSQL для production
+### Общая оценка
+**7/10** - Система работоспособна, но требует исправления критической ошибки с импортом модуля.
