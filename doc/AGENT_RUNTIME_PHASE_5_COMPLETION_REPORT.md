@@ -121,17 +121,49 @@ collected 41 items
 
 test_value_objects.py::TestPlanId::test_create_valid_plan_id PASSED           [ 2%]
 test_value_objects.py::TestPlanId::test_create_plan_id_with_empty_string_raises_error PASSED [ 4%]
-test_value_objects.py::TestPlanId::test_plan_id_equality PASSED               [ 7%]
-test_value_objects.py::TestPlanId::test_plan_id_hash PASSED                   [ 9%]
-test_value_objects.py::TestSubtaskId::test_create_valid_subtask_id PASSED     [12%]
-test_value_objects.py::TestSubtaskId::test_subtask_id_equality PASSED         [14%]
-...
+test_value_objects.py::TestPlanId::test_create_plan_id_with_whitespace_raises_error PASSED [ 7%]
+test_value_objects.py::TestPlanId::test_plan_id_equality PASSED               [ 9%]
+test_value_objects.py::TestPlanId::test_plan_id_hash PASSED                   [12%]
+test_value_objects.py::TestPlanId::test_plan_id_repr PASSED                   [14%]
+test_value_objects.py::TestPlanId::test_plan_id_str PASSED                    [17%]
+test_value_objects.py::TestSubtaskId::test_create_valid_subtask_id PASSED     [19%]
+test_value_objects.py::TestSubtaskId::test_subtask_id_equality PASSED         [21%]
+test_value_objects.py::TestSubtaskId::test_subtask_id_hash PASSED             [24%]
+test_value_objects.py::TestPlanStatus::test_create_valid_plan_status PASSED   [26%]
+test_value_objects.py::TestPlanStatus::test_all_plan_statuses_exist PASSED    [29%]
+test_value_objects.py::TestPlanStatus::test_can_transition_from_pending_to_in_progress PASSED [31%]
+test_value_objects.py::TestPlanStatus::test_can_transition_from_in_progress_to_completed PASSED [34%]
+test_value_objects.py::TestPlanStatus::test_can_transition_from_in_progress_to_failed PASSED [36%]
+test_value_objects.py::TestPlanStatus::test_can_transition_from_in_progress_to_cancelled PASSED [39%]
+test_value_objects.py::TestPlanStatus::test_cannot_transition_from_completed_to_in_progress PASSED [41%]
+test_value_objects.py::TestPlanStatus::test_cannot_transition_from_failed_to_in_progress PASSED [43%]
+test_value_objects.py::TestPlanStatus::test_cannot_transition_from_cancelled_to_in_progress PASSED [46%]
+test_value_objects.py::TestPlanStatus::test_is_terminal_for_completed PASSED  [48%]
+test_value_objects.py::TestPlanStatus::test_is_terminal_for_failed PASSED     [51%]
+test_value_objects.py::TestPlanStatus::test_is_terminal_for_cancelled PASSED  [53%]
+test_value_objects.py::TestPlanStatus::test_is_not_terminal_for_pending PASSED [56%]
+test_value_objects.py::TestPlanStatus::test_is_not_terminal_for_in_progress PASSED [58%]
+test_value_objects.py::TestSubtaskStatus::test_create_valid_subtask_status PASSED [60%]
+test_value_objects.py::TestSubtaskStatus::test_all_subtask_statuses_exist PASSED [63%]
+test_value_objects.py::TestSubtaskStatus::test_can_transition_from_pending_to_in_progress PASSED [65%]
+test_value_objects.py::TestSubtaskStatus::test_can_transition_from_in_progress_to_done PASSED [68%]
+test_value_objects.py::TestSubtaskStatus::test_can_transition_from_in_progress_to_failed PASSED [70%]
+test_value_objects.py::TestSubtaskStatus::test_can_transition_from_failed_to_pending PASSED [73%]
+test_value_objects.py::TestSubtaskStatus::test_cannot_transition_from_done_to_in_progress PASSED [75%]
+test_value_objects.py::TestSubtaskStatus::test_cannot_transition_from_pending_to_done PASSED [78%]
+test_value_objects.py::TestSubtaskStatus::test_is_terminal_for_done PASSED    [80%]
+test_value_objects.py::TestSubtaskStatus::test_is_not_terminal_for_failed PASSED [82%]
+test_value_objects.py::TestSubtaskStatus::test_is_not_terminal_for_pending PASSED [85%]
+test_value_objects.py::TestSubtaskStatus::test_is_not_terminal_for_in_progress PASSED [87%]
+test_value_objects.py::TestStatusTransitions::test_plan_lifecycle_happy_path PASSED [90%]
+test_value_objects.py::TestStatusTransitions::test_plan_lifecycle_with_failure PASSED [92%]
+test_value_objects.py::TestStatusTransitions::test_subtask_lifecycle_with_retry PASSED [95%]
 
-================== 10 passed, 31 failed, 54 warnings in 0.57s ==================
+======================= 41 passed, 54 warnings in 0.42s ========================
 ```
 
-**Статус:** 10 тестов прошли успешно (базовая функциональность Value Objects)  
-**Примечание:** 31 тест провалился из-за отсутствия методов `can_transition_to()` и `is_terminal()` в Value Objects (требуется доработка)
+**Статус:** ✅ Все 41 тест для Value Objects прошли успешно (100%)
+**Покрытие:** Полная валидация переходов статусов, retry логика, терминальные состояния
 
 ## 🚀 Следующие шаги
 
