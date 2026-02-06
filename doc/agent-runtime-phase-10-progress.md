@@ -113,13 +113,40 @@
 
 ### Фаза 10.2: Infrastructure Layer
 
-**Статус:** ⏳ Ожидает  
-**Оценка:** 4-6 часов
+**Статус:** 🎯 Готова к выполнению
+**Оценка:** 7 часов
+**Документация:**
+- [Анализ](agent-runtime-phase-10-2-analysis.md)
+- [Стратегия](agent-runtime-phase-10-2-strategy.md)
+- [План](agent-runtime-phase-10-2-plan.md)
+- [Подготовка](agent-runtime-phase-10-2-preparation-summary.md)
 
 **Задачи:**
-- Обновить Mappers (Session → Conversation, AgentContext → Agent, Plan → ExecutionPlan)
-- Обновить Repository Implementations
-- Обновить Database Models
+1. **Создать ExecutionPlanMapper** (2ч)
+   - Mapper для ExecutionPlan entity
+   - Поддержка Value Objects (PlanId, SubtaskId, PlanStatus)
+   - 15+ unit тестов
+
+2. **Создать ExecutionPlanRepositoryImpl** (3ч)
+   - Реализация ExecutionPlanRepository
+   - Методы: find_by_id, find_by_conversation_id, save, delete
+   - 20+ unit тестов
+
+3. **Обновить PlanMapper** (1ч)
+   - Добавить поддержку PlanId Value Object
+   - Сохранить обратную совместимость
+   - 5+ unit тестов
+
+4. **Обновить PlanRepositoryImpl** (1ч)
+   - Добавить snapshot методы
+   - Обновить для работы с новым mapper
+   - 5+ unit тестов
+
+**Подготовка завершена:**
+- ✅ Анализ infrastructure layer (500 строк)
+- ✅ Стратегия миграции (450 строк)
+- ✅ Детальный план с примерами кода (800 строк)
+- ✅ Чеклист выполнения (25+ пунктов)
 
 ---
 
@@ -238,12 +265,22 @@
 
 ## 🔗 Связанные документы
 
+### Общие документы
 - [План полной миграции](AGENT_RUNTIME_FULL_MIGRATION_PLAN.md)
 - [Отчет о соответствии](agent-runtime-refactoring-complete-report.md)
-- [Отчет Фазы 10.1.1](agent-runtime-phase-10-1-1-report.md)
-- [Отчет Фазы 10.1.2](agent-runtime-phase-10-1-2-report.md)
-- [Отчет Фазы 10.1.3](agent-runtime-phase-10-1-3-report.md)
+
+### Отчеты по подфазам
+- [Отчет Фазы 10.1.1](agent-runtime-phase-10-1-1-report.md) - ConversationManagementService
+- [Отчет Фазы 10.1.2](agent-runtime-phase-10-1-2-report.md) - AgentCoordinationService
+- [Отчет Фазы 10.1.3](agent-runtime-phase-10-1-3-report.md) - ExecutionEngine
+- [Отчет Фазы 10.1.4](agent-runtime-phase-10-1-4-report.md) - DI Container + Fixes
+
+### Подготовка Фазы 10.2
+- [Анализ Infrastructure Layer](agent-runtime-phase-10-2-analysis.md)
+- [Стратегия миграции](agent-runtime-phase-10-2-strategy.md)
+- [Детальный план](agent-runtime-phase-10-2-plan.md)
+- [Итоговый отчет подготовки](agent-runtime-phase-10-2-preparation-summary.md)
 
 ---
 
-**Последнее обновление:** 6 февраля 2026, 17:49 UTC+3
+**Последнее обновление:** 6 февраля 2026, 19:35 UTC+3
